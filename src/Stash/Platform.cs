@@ -22,30 +22,64 @@ public static class Paths
     }
 }
 
-/// <summary>The master key for daily use, wrapped by Windows' own Data Protection for this user on this PC, the way the
-/// Mac keeps it in the login Keychain. The words on the card are the only other copy, and they live with you.</summary>
+/// <summary>The master key for daily use, wrapped by Windows' own Data Protection, the way the Mac keeps it in the login
+/// Keychain. Normally wrapped for this user's account, which only that account signed in can open. When the schedule runs
+/// with nobody signed in (a service-for-user logon has no credentials, so the account wrap fails with "key not valid for
+/// use in specified state") it is wrapped for this PC instead: any administrator on this PC could then read it. The words
+/// on the card are the only other copy, and they live with you.</summary>
 public static class KeyStore
 {
     private static readonly byte[] Entropy = System.Text.Encoding.UTF8.GetBytes("com.keithadler.stashwin");
+    private static bool Plain => Environment.GetEnvironmentVariable("STASH_HOME") is not null;
 
-    public static MasterKey? Load(string stash = "default")
+    public static MasterKey? Load(string stash = "default") => Read(stash).Key;
+
+    /// <summary>"account", "pc", or null when there is no key. A test home (STASH_HOME) keeps the key plain and reports "test".</summary>
+    public static string? Scope(string stash = "default") => Read(stash).Scope;
+
+    // Key files begin with "STKW1" and one scope byte ('a' account, 'p' PC) before the DPAPI blob. Files from 1.0.0 are a
+    // bare blob wrapped for the account. The scope is recorded because Windows unwraps a blob with whichever scope it was
+    // made with, whatever the caller asks for, so the file itself has to say.
+    private static readonly byte[] Header = System.Text.Encoding.ASCII.GetBytes("STKW1");
+
+    private static (MasterKey? Key, string? Scope) Read(string stash)
     {
         var f = Paths.KeyFile(stash);
-        if (!File.Exists(f)) return null;
+        if (!File.Exists(f)) return (null, null);
+        byte[] raw;
+        try { raw = File.ReadAllBytes(f); } catch { return (null, null); }
+        if (Plain && raw.Length == 32) return (new MasterKey(raw), "test");
+        var scope = "account"; var blob = raw;
+        if (raw.Length > Header.Length + 1 && raw.AsSpan(0, Header.Length).SequenceEqual(Header))
+        {
+            scope = raw[Header.Length] == (byte)'p' ? "pc" : "account";
+            blob = raw[(Header.Length + 1)..];
+        }
         try
         {
-            var raw = File.ReadAllBytes(f);
-            var plain = Environment.GetEnvironmentVariable("STASH_HOME") is not null && raw.Length == 32 ? raw : ProtectedData.Unprotect(raw, Entropy, DataProtectionScope.CurrentUser);
-            return plain.Length == 32 ? new MasterKey(plain) : null;
+            var plain = ProtectedData.Unprotect(blob, Entropy, scope == "pc" ? DataProtectionScope.LocalMachine : DataProtectionScope.CurrentUser);
+            return plain.Length == 32 ? (new MasterKey(plain), scope) : (null, null);
         }
-        catch { return null; }
+        catch { return (null, null); }
     }
 
-    public static void Save(MasterKey key, string stash = "default")
+    /// <summary>forPc wraps the key for this PC (readable by an administrator here) so a schedule with nobody signed in can open it.</summary>
+    public static void Save(MasterKey key, bool forPc = false, string stash = "default")
     {
         Directory.CreateDirectory(Paths.Home);
-        var bytes = Environment.GetEnvironmentVariable("STASH_HOME") is not null ? key.Entropy : ProtectedData.Protect(key.Entropy, Entropy, DataProtectionScope.CurrentUser);
-        File.WriteAllBytes(Paths.KeyFile(stash), bytes);
+        if (Plain) { File.WriteAllBytes(Paths.KeyFile(stash), key.Entropy); return; }
+        var blob = ProtectedData.Protect(key.Entropy, Entropy, forPc ? DataProtectionScope.LocalMachine : DataProtectionScope.CurrentUser);
+        File.WriteAllBytes(Paths.KeyFile(stash), [.. Header, (byte)(forPc ? 'p' : 'a'), .. blob]);
+    }
+
+    /// <summary>Re-wrap the key for the PC or back for the account, only when it is not already so. False when there is no key to re-wrap.</summary>
+    public static bool Rewrap(bool forPc, string stash = "default")
+    {
+        var (key, scope) = Read(stash);
+        if (key is null) return false;
+        if (scope == "test" || scope == (forPc ? "pc" : "account")) return true;
+        Save(key, forPc, stash);
+        return true;
     }
 
     public static void Delete(string stash = "default") { try { File.Delete(Paths.KeyFile(stash)); } catch { } }
@@ -73,6 +107,8 @@ public sealed class Config
     public bool OpenAtSignIn { get; set; } = true;
     public bool OpenAtSignInOffered { get; set; }
     public bool Tray { get; set; } = true;
+    /// <summary>Register the schedule to run whether or not the user is signed in (S4U logon, no password stored).</summary>
+    public bool WhenSignedOut { get; set; }
     public string? LastScheduledResult { get; set; }
     public DateTimeOffset? LastScheduledAt { get; set; }
 
@@ -185,10 +221,13 @@ public static class Providers
 }
 
 /// <summary>The schedule is a Task Scheduler task that runs the console twin, so backups happen whether or not the
-/// window is open. Registered for this user only; no administrator, no service.</summary>
+/// window is open. Registered for this user only through Task Scheduler's XML, so the settings are exact: catch up a
+/// missed run when the PC wakes, allow running on battery, one instance at a time, and optionally run whether or not
+/// the user is signed in (a service-for-user logon, no password stored). No administrator, no service.</summary>
 public static class Schedule
 {
-    public const string TaskName = "Stash for Windows";
+    /// <summary>A test run (STASH_HOME set) registers under its own name so it never touches the real schedule.</summary>
+    public static string TaskName => Environment.GetEnvironmentVariable("STASH_HOME") is null ? "Stash for Windows" : "Stash for Windows (test)";
 
     private static string ConsoleExe()
     {
@@ -198,19 +237,56 @@ public static class Schedule
         return File.Exists(candidate) ? candidate : exe;
     }
 
-    public static (bool Ok, string Message) Install(string schedule)
+    /// <summary>The task definition. whenSignedOut chooses an S4U logon (runs with no one signed in, no password kept) over the interactive token.</summary>
+    public static string Xml(string schedule, string exe, bool whenSignedOut, string userId)
+    {
+        var trigger = schedule == "hourly"
+            ? "<TimeTrigger><StartBoundary>2026-01-01T00:00:00</StartBoundary><Repetition><Interval>PT1H</Interval><StopAtDurationEnd>false</StopAtDurationEnd></Repetition><Enabled>true</Enabled></TimeTrigger>"
+            : "<CalendarTrigger><StartBoundary>2026-01-01T20:00:00</StartBoundary><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay><Enabled>true</Enabled></CalendarTrigger>";
+        var logon = whenSignedOut ? "S4U" : "InteractiveToken";
+        return $"""
+            <?xml version="1.0" encoding="UTF-16"?>
+            <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+              <RegistrationInfo><Description>Stash for Windows: encrypted backup into the folders you chose. Registered by the app; remove it from the app's Settings.</Description></RegistrationInfo>
+              <Triggers>{trigger}</Triggers>
+              <Principals><Principal id="Author"><UserId>{System.Security.SecurityElement.Escape(userId)}</UserId><LogonType>{logon}</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+              <Settings>
+                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+                <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+                <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+                <AllowHardTerminate>true</AllowHardTerminate>
+                <StartWhenAvailable>true</StartWhenAvailable>
+                <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+                <Enabled>true</Enabled>
+                <Hidden>false</Hidden>
+                <RunOnlyIfIdle>false</RunOnlyIfIdle>
+                <WakeToRun>false</WakeToRun>
+                <ExecutionTimeLimit>PT12H</ExecutionTimeLimit>
+                <Priority>7</Priority>
+              </Settings>
+              <Actions Context="Author"><Exec><Command>{System.Security.SecurityElement.Escape(exe)}</Command><Arguments>backup --scheduled</Arguments></Exec></Actions>
+            </Task>
+            """;
+    }
+
+    public static (bool Ok, string Message) Install(string schedule, bool whenSignedOut = false)
     {
         if (schedule == "off") return Remove();
         var exe = ConsoleExe();
         if (!exe.EndsWith("stash.exe", StringComparison.OrdinalIgnoreCase)) return (false, "Put stash.exe next to the app so the schedule can run it.");
-        var timing = schedule == "hourly" ? "/sc hourly /mo 1" : "/sc daily /st 20:00";
-        var args = $"/create /f /tn \"{TaskName}\" /tr \"\\\"{exe}\\\" backup --scheduled\" {timing}";
-        var (ok, output) = Run("schtasks.exe", args);
-        return ok ? (true, $"Scheduled: {(schedule == "hourly" ? "every hour" : "once a day at 20:00")}, whether or not the window is open.") : (false, output);
+        var user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+        KeyStore.Rewrap(forPc: whenSignedOut);
+        var xmlPath = Path.Combine(Path.GetTempPath(), "stash-task.xml");
+        File.WriteAllText(xmlPath, Xml(schedule, exe, whenSignedOut, user), new System.Text.UnicodeEncoding(false, true));
+        var (ok, output) = Run("schtasks.exe", $"/create /f /tn \"{TaskName}\" /xml \"{xmlPath}\"");
+        try { File.Delete(xmlPath); } catch { }
+        if (!ok) return (false, output);
+        return (true, (schedule == "hourly" ? "Scheduled: every hour" : "Scheduled: once a day at 20:00") + (whenSignedOut ? ", whether or not you are signed in; the key is now protected for this PC rather than for your account." : ", while you are signed in (the screen may be locked)."));
     }
 
     public static (bool Ok, string Message) Remove()
     {
+        KeyStore.Rewrap(forPc: false);
         var (ok, output) = Run("schtasks.exe", $"/delete /f /tn \"{TaskName}\"");
         return ok || output.Contains("cannot find", StringComparison.OrdinalIgnoreCase) ? (true, "No schedule.") : (false, output);
     }

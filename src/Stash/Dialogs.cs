@@ -258,7 +258,10 @@ public sealed class SettingsWindow : Window
         foreach (var (v, label) in new[] { ("off", "Only when I press Back Up Now"), ("hourly", "Every hour"), ("daily", "Once a day, at 20:00") }) schedule.Items.Add(new ComboBoxItem { Content = L.T(label), Tag = v });
         schedule.SelectedIndex = cfg.Schedule switch { "hourly" => 1, "daily" => 2, _ => 0 };
         panel.Children.Add(schedule);
-        panel.Children.Add(Ui.Text("A Task Scheduler task for this user runs the backup whether or not the window is open, only to destinations that are reachable, uploading only what changed.", "Small", new Thickness(0, 4, 0, 0)));
+        panel.Children.Add(Ui.Text("A Task Scheduler task for this user runs the backup whether or not the window is open, only to destinations that are reachable, uploading only what changed. A missed run happens when the PC is next awake; running on battery is allowed.", "Small", new Thickness(0, 4, 0, 0)));
+        var signedOut = Ui.Check("Run even when I am not signed in", cfg.WhenSignedOut, new Thickness(0, 8, 0, 0));
+        panel.Children.Add(signedOut);
+        panel.Children.Add(Ui.Text("Normally the schedule runs while you are signed in, locked screen included, and the key is protected for your account. With this on, Task Scheduler runs it with nobody signed in too, without storing your password; to make that possible the key is protected for this PC instead, which an administrator on this PC could read. Cloud folders only sync once you sign in; a disk or a NAS gets the backup right away.", "Small", new Thickness(0, 4, 0, 0)));
 
         panel.Children.Add(Ui.Text("How many snapshots to keep", "H2", new Thickness(0, 14, 0, 4)));
         var last = Ui.Radio("The newest", cfg.Retention != "thin", new Thickness(0, 0, 8, 0)); last.VerticalContentAlignment = VerticalAlignment.Center;
@@ -300,6 +303,7 @@ public sealed class SettingsWindow : Window
             cfg.MaxFileMB = int.TryParse(max.Text, out var mb) && mb > 0 ? mb : 0;
             cfg.WeeklyVerify = weekly.IsChecked == true;
             cfg.ReadAll = readAll.IsChecked == true;
+            cfg.WhenSignedOut = signedOut.IsChecked == true;
             cfg.Tray = tray.IsChecked == true;
             cfg.UpdateCheck = updates.IsChecked == true;
             Startup.Set(login.IsChecked == true); cfg.OpenAtSignIn = login.IsChecked == true;

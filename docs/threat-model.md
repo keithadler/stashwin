@@ -16,6 +16,7 @@ moves data, so the code has something to be measured against.
 | The storage provider | every chunk blob and manifest blob | sizes of blobs (padded to 4 MB steps in a later version), when uploads happen, roughly how much data; nothing about names or contents |
 | Someone with your provider account (phished password, subpoena) | same as the provider | same; can also delete everything, which is why two destinations |
 | A thief with your PC, locked | the key wrapped by Windows Data Protection | nothing without your Windows password; BitLocker or device encryption is assumed |
+| An administrator on your PC, when the schedule runs with nobody signed in | the key wrapped for this PC rather than for your account | everything, because that wrap opens for any process on this PC that can read the file; the toggle says so, and it is off by default |
 | A thief with your PC, unlocked and app running | the key in memory | everything; no backup tool survives this |
 | Someone who finds the recovery card | the key | everything; the card must be treated like a passport |
 | A network observer | encrypted provider traffic | timing and volume only |
@@ -28,8 +29,10 @@ moves data, so the code has something to be measured against.
 - Authentication failure on any chunk aborts the restore of that file and reports it. Nothing
   partial is written where a good file should go.
 - The key is generated with the operating system's random number generator, never derived from a password, never written
-  anywhere but Windows Data Protection for this account and the card the user explicitly renders.
-- The app never phones home with anything about the user. The only network traffic is the destination the user configured and nothing else: there is no update check.
+  anywhere but Windows Data Protection (for this account, or for this PC when the user chooses to run the schedule with
+  nobody signed in, since a service-for-user logon cannot open an account-wrapped key) and the card the user explicitly renders.
+- The app never phones home with anything about the user. The only network traffic is the destination the user configured
+  and, when left on in Settings, one request a day to GitHub for the latest version number, carrying no identifier.
 - Reading a source folder never causes a cloud download: dataless files are skipped and listed.
 
 ## Explicitly not provided

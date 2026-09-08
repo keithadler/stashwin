@@ -110,8 +110,9 @@ public sealed class Shell : Observable
     }
 
     // ---- Key ----
-    public MasterKey MakeKey() { var k = MasterKey.Random(); KeyStore.Save(k); Config.CardConfirmed = false; Config.Save(); Load(); return k; }
-    public void InstallKey(MasterKey k) { KeyStore.Save(k); Config.CardConfirmed = true; Config.Save(); Load(); }
+    private bool KeyForPc => Config.WhenSignedOut && Config.Schedule != "off";
+    public MasterKey MakeKey() { var k = MasterKey.Random(); KeyStore.Save(k, KeyForPc); Config.CardConfirmed = false; Config.Save(); Load(); return k; }
+    public void InstallKey(MasterKey k) { KeyStore.Save(k, KeyForPc); Config.CardConfirmed = true; Config.Save(); Load(); }
     public void ConfirmCard() { Config.CardConfirmed = true; Config.Save(); Load(); }
     public void ForgetKey() { KeyStore.Delete(); Load(); }
 
@@ -195,7 +196,7 @@ public sealed class Shell : Observable
     public string ApplySchedule(string schedule)
     {
         Config.Schedule = schedule; Config.Save();
-        var (_, msg) = Schedule.Install(schedule);
+        var (_, msg) = Schedule.Install(schedule, Config.WhenSignedOut);
         Raise(nameof(ScheduleLine)); Raise(nameof(ReadyLine));
         return msg;
     }

@@ -38,7 +38,8 @@
 <p>Un destino que no está disponible (un disco desconectado, un NAS apagado) se omite y la app lo dice.</p>
 
 <h2 id="schedule">Programación</h2>
-<p>Ajustes ofrece cada hora o una vez al día a las 20:00. La app registra una tarea del Programador de tareas para tu cuenta que ejecuta <code>stash.exe backup --scheduled</code>, así que las copias se hacen esté o no abierta la ventana, sin servicio y sin administrador. La comprobación semanal viaja con la programación. El icono de la bandeja muestra la última copia y la siguiente, y avisa una sola vez cuando una copia programada falla.</p>
+<p>Ajustes ofrece cada hora o una vez al día a las 20:00. La app registra una tarea del Programador de tareas para tu cuenta que ejecuta <code>stash.exe backup --scheduled</code>, así que las copias se hacen esté o no abierta la ventana, sin servicio y sin administrador. Una ejecución que el PC durmió se hace cuando vuelve a estar despierto, y se permite con batería. La comprobación semanal viaja con la programación. El icono de la bandeja muestra la última copia y la siguiente, y avisa una sola vez cuando una copia programada falla.</p>
+<p>Normalmente la tarea se ejecuta con la sesión iniciada, pantalla bloqueada incluida, y no con la sesión cerrada. <b>Ejecutar aunque no haya iniciado sesión</b> hace que el Programador de tareas la ejecute sin nadie conectado, sin guardar tu contraseña. El precio está en dónde vive la clave: normalmente está protegida para tu cuenta, que solo tu cuenta con la sesión iniciada puede abrir; con esto activado se protege para este PC, y un administrador de este PC podría leerla. Las carpetas en la nube solo sincronizan cuando inicias sesión; un disco o un NAS recibe la copia de inmediato. Desactívalo y la clave vuelve a tu cuenta.</p>
 
 <h2 id="restore">Restaurar y verificar</h2>
 <p><b>Restaurar</b> en una instantánea abre la lista de todos sus archivos. Selecciona algunos, o restaura todo, y elige dónde van: los archivos llegan a una carpeta con el nombre de la original, y nada en la ubicación original se toca. Una pieza que falla su comprobación se informa y nunca se escribe.</p>
@@ -64,7 +65,8 @@
 <pre>stash key new | show | card &lt;archivo.txt|.png&gt; | restore "&lt;24 palabras&gt;" | forget
 stash add &lt;carpeta&gt;      stash dest &lt;carpeta&gt;      stash providers
 stash backup [--json]    stash snapshots           stash restore latest &lt;destino&gt; [--only a,b]
-stash verify             stash prune [--keep N | --thin]    stash schedule off|hourly|daily
+stash verify             stash prune [--keep N | --thin]
+stash schedule off|hourly|daily [--when-signed-out | --signed-in-only]
 stash update             stash status [--json]     stash selftest</pre>
 <p>Códigos de salida: 0 bien, 1 algo que mirar, 2 problema, 64 uso. Gratis, MIT, hecho por Keith Adler; más en <a href="https://keithadler.github.io/">keithadler.github.io</a>.</p>
 </main></body></html>

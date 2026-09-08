@@ -34,6 +34,8 @@ $chunk = Get-ChildItem -Recurse -File (Join-Path $dest "Stash for Mac") | Where-
 Check "tampered chunk reported"      { $v = & $Exe verify --json; $code = $LASTEXITCODE; $code -eq 2 -and (($v | ConvertFrom-Json).results | Where-Object { $_.bad.Count -gt 0 }) }
 Check "key forget then restore words" { & $Exe key forget *> $null; & $Exe key restore "$words" *> $null; ((& $Exe snapshots --json | ConvertFrom-Json).snapshots).Count -gt 0 }
 Check "wrong word rejected"          { & $Exe key restore ("zoo " + ($words -replace "^\S+ ", "")) *> $null; $LASTEXITCODE -ne 0 }
+Check "schedule signed-out is S4U"   { & $Exe schedule daily --when-signed-out *> $null; $LASTEXITCODE -eq 0 -and ((schtasks /query /tn "Stash for Windows (test)" /xml | Out-String) -match "<LogonType>S4U</LogonType>") -and ((schtasks /query /tn "Stash for Windows (test)" /xml | Out-String) -match "<StartWhenAvailable>true</StartWhenAvailable>") }
+Check "schedule off removes it"      { & $Exe schedule off *> $null; schtasks /query /tn "Stash for Windows (test)" *> $null; $LASTEXITCODE -ne 0 }
 Check "selftest"                     { (& $Exe selftest | Select-Object -Last 1) -match "0 failed" }
 Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 if ($fail -eq 0) { Write-Host "integration: all passed" } else { Write-Host "integration: FAILURES" }

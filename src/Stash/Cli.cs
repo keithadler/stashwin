@@ -40,7 +40,9 @@ public static class Cli
           stash restore <snapshot|latest> <target folder> [--only <path>[,<path>...]] [--dest <folder>]
           stash verify [--json]             open every chunk of the latest snapshot; restore one random file
           stash prune [--keep N | --thin] [--json]   apply the retention policy now (also runs after each backup)
-          stash schedule off|hourly|daily   register the backup with Task Scheduler for this user
+          stash schedule off|hourly|daily   register the backup with Task Scheduler for this user; --when-signed-out runs it
+                                            with nobody signed in (no password stored; the key is then protected for this PC,
+                                            readable by an administrator here), --signed-in-only goes back
           stash seal <in> <out>             encrypt one file as a chunk (proof of the format); stash open <in> <out>
           stash update                      ask GitHub whether a newer version exists (the only network call, off in Settings)
           stash status [--json]
@@ -93,7 +95,7 @@ public static class Cli
                     {
                         case "new":
                             if (KeyStore.Load() is not null) { err.WriteLine("This PC already has a key. \"stash key forget\" first if you really want a new one; the old backups need the old card."); return 2; }
-                            var k = MasterKey.Random(); KeyStore.Save(k);
+                            var k = MasterKey.Random(); KeyStore.Save(k, cfg.WhenSignedOut && cfg.Schedule != "off");
                             if (json) o.WriteLine(J(new { fingerprint = k.Fingerprint, words = k.Words }));
                             else { o.WriteLine($"New key {k.Fingerprint}. Write these 24 words on a card and keep it somewhere safe; nothing else can read the backup.\n"); o.WriteLine(Mnemonic.Card(k.Words)); }
                             return 0;
@@ -112,7 +114,7 @@ public static class Cli
                             var text = string.Join(' ', pos.Skip(1));
                             MasterKey? kr = MasterKey.FromQrPayload(text.Trim());
                             if (kr is null) { try { kr = MasterKey.FromWords(text); } catch (Mnemonic.WordsException ex) { err.WriteLine(ex.Message); return 2; } }
-                            KeyStore.Save(kr); o.WriteLine($"key {kr.Fingerprint} installed"); return 0;
+                            KeyStore.Save(kr, cfg.WhenSignedOut && cfg.Schedule != "off"); o.WriteLine($"key {kr.Fingerprint} installed"); return 0;
                         case "forget":
                             KeyStore.Delete(); o.WriteLine("key removed from this PC; the card is now the only copy"); return 0;
                         default: err.WriteLine("key new | show | card | restore | forget"); return 64;
@@ -306,8 +308,8 @@ public static class Cli
                 {
                     var which = pos.FirstOrDefault()?.ToLowerInvariant();
                     if (which is not ("off" or "hourly" or "daily")) { err.WriteLine("schedule off | hourly | daily"); return 64; }
-                    cfg.Schedule = which; cfg.Save();
-                    var (ok, msg) = Schedule.Install(which);
+                    cfg.Schedule = which; if (Flag(rest, "--when-signed-out")) cfg.WhenSignedOut = true; if (Flag(rest, "--signed-in-only")) cfg.WhenSignedOut = false; cfg.Save();
+                    var (ok, msg) = Schedule.Install(which, cfg.WhenSignedOut);
                     o.WriteLine(msg); return ok ? 0 : 2;
                 }
                 case "seal": case "open":
@@ -323,16 +325,16 @@ public static class Cli
                 case "status":
                 {
                     var k = KeyStore.Load();
-                    if (json) { o.WriteLine(J(new { version = Version, key = k?.Fingerprint, folders = cfg.Sources, destinations = cfg.Destinations, last_backup = cfg.LastBackup, last_verify = cfg.LastVerify, schedule = cfg.Schedule, scheduled = Schedule.IsInstalled(), retention = cfg.Retention, keep = cfg.KeepSnapshots })); }
+                    if (json) { o.WriteLine(J(new { version = Version, key = k?.Fingerprint, key_protected_for = KeyStore.Scope(), folders = cfg.Sources, destinations = cfg.Destinations, last_backup = cfg.LastBackup, last_verify = cfg.LastVerify, schedule = cfg.Schedule, scheduled = Schedule.IsInstalled(), retention = cfg.Retention, keep = cfg.KeepSnapshots })); }
                     else
                     {
                         o.WriteLine($"Stash for Windows {Version}");
-                        o.WriteLine($"key:           {(k is null ? "none (stash key new)" : k.Fingerprint)}");
+                        o.WriteLine($"key:           {(k is null ? "none (stash key new)" : k.Fingerprint + KeyStore.Scope() switch { "pc" => " (protected for this PC, so the schedule runs with nobody signed in)", "account" => " (protected for your account)", _ => "" })}");
                         o.WriteLine($"folders:       {(cfg.Sources.Count == 0 ? "none (stash add <folder>)" : string.Join(", ", cfg.Sources))}");
                         o.WriteLine($"destinations:  {(cfg.Destinations.Count == 0 ? "none (stash dest <folder>)" : string.Join(", ", cfg.Destinations.Select(d => d + (Directory.Exists(d) ? "" : " (not reachable)"))))}");
                         o.WriteLine($"last backup:   {(cfg.LastBackup is { } lb ? lb.ToLocalTime().ToString("g") : "never")}");
                         o.WriteLine($"last verify:   {(cfg.LastVerify is { } lv ? lv.ToLocalTime().ToString("g") : "never")}");
-                        o.WriteLine($"schedule:      {cfg.Schedule}{(Schedule.IsInstalled() ? " (Task Scheduler)" : cfg.Schedule == "off" ? "" : " (not registered: stash schedule " + cfg.Schedule + ")")}");
+                        o.WriteLine($"schedule:      {cfg.Schedule}{(Schedule.IsInstalled() ? (cfg.WhenSignedOut ? " (Task Scheduler, even when nobody is signed in)" : " (Task Scheduler, while signed in)") : cfg.Schedule == "off" ? "" : " (not registered: stash schedule " + cfg.Schedule + ")")}");
                         o.WriteLine($"keep:          {(cfg.Retention == "thin" ? "thin out over time" : $"newest {cfg.KeepSnapshots} snapshots")}");
                         if (k is not null) o.WriteLine($"at destination:{string.Join(",", cfg.Destinations.Where(Directory.Exists).Select(d => " " + Human(new FolderStore(d, k).TotalSize())))}");
                     }

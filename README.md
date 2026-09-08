@@ -21,7 +21,7 @@ The first time, Windows SmartScreen says it does not recognise the app: click **
 ## What it does
 
 - **Backs up the folders you choose to several places at once**: your OneDrive folder and your Google Drive folder and an external disk, each a complete copy. An account can be lost, a disk can fail; two destinations survive either, and the app nags until you have two.
-- **On a schedule**: every hour or once a day, as a Task Scheduler task for your account, only to destinations that are reachable right now, uploading only what changed. No window needs to be open, no service runs.
+- **On a schedule**: every hour or once a day, as a Task Scheduler task for your account, only to destinations that are reachable right now, uploading only what changed. No window needs to be open, no service runs. It runs while you are signed in, locked screen included; a run the PC slept through happens when it wakes. A Settings toggle makes it run with nobody signed in, at the honest price of protecting the key for this PC instead of for your account (Help explains).
 - **Checks itself**: once a week, riding along with the schedule, it opens every piece of the latest snapshot and restores one random file to prove the whole path works, and tells you in plain words. A backup that has never been verified is a guess.
 - **Sits in the tray** with the last backup and the next one, Back Up Now and Verify a right-click away, and one balloon when a scheduled backup fails. Opens at sign-in by default; both are toggles in Settings.
 - **Encrypted before it leaves the PC**, with a key that lives on a card you keep, never with the provider and never with anyone else.

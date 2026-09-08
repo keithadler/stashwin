@@ -40,7 +40,8 @@
 <p>A destination that is not reachable (an unplugged disk, a NAS that is off) is skipped and the app says so. A cloud folder set to keep files online-only still works as a destination; the app only ever writes there.</p>
 
 <h2 id="schedule">Schedule</h2>
-<p>Settings offers every hour or once a day at 20:00. The app registers a Task Scheduler task for your account that runs <code>stash.exe backup --scheduled</code>, so backups happen whether or not the window is open, with no service and no administrator. Set it to off and the task is removed.</p>
+<p>Settings offers every hour or once a day at 20:00. The app registers a Task Scheduler task for your account that runs <code>stash.exe backup --scheduled</code>, so backups happen whether or not the window is open, with no service and no administrator. A run the PC slept through happens when it is next awake, and running on battery is allowed. Set it to off and the task is removed.</p>
+<p>Normally the task runs while you are signed in, locked screen included, and not while you are signed out. <b>Run even when I am not signed in</b> makes Task Scheduler run it with nobody signed in, without storing your password. The price is where the key lives: normally it is protected for your account, which only your account, signed in, can open; with this on it is protected for this PC instead, so an administrator on this PC could read it. Cloud folders only sync once you sign in anyway; a disk or a NAS gets the backup right away. Turn it off and the key goes back to your account.</p>
 
 <h2 id="restore">Restore and verify</h2>
 <p><b>Restore</b> on a snapshot opens a list of every file in it. Select some, or restore everything, and choose where they go: files arrive in a folder named after the original folder, and nothing at the original location is touched. A piece that fails its authentication check is reported and never written.</p>
@@ -58,7 +59,7 @@
 <li>The provider, or anyone with your provider password, can delete the whole folder. Two destinations.</li>
 <li>Someone with your unlocked PC and the app running has the key. No backup tool survives that.</li>
 <li>Pieces are fixed 4 MB; a large file with a small edit in the middle uploads two new pieces, not a few bytes.</li>
-<li>Windows Data Protection ties the wrapped key to your account on this PC: a new PC, a new account or a reset needs the card.</li>
+<li>Windows Data Protection ties the wrapped key to your account on this PC, or to this PC when the schedule runs with nobody signed in: a new PC, a new account or a reset needs the card.</li>
 </ul>
 
 <h2 id="cli">Command line</h2>
@@ -66,7 +67,8 @@
 <pre>stash key new | show | card &lt;file.txt&gt; | restore "&lt;24 words&gt;" | forget
 stash add &lt;folder&gt;        stash dest &lt;folder&gt;        stash providers
 stash backup [--json]    stash snapshots            stash restore latest &lt;target&gt; [--only a,b]
-stash verify             stash prune [--keep N | --thin]    stash schedule off|hourly|daily
+stash verify             stash prune [--keep N | --thin]
+stash schedule off|hourly|daily [--when-signed-out | --signed-in-only]
 stash status [--json]    stash selftest</pre>
 <p>Exit codes: 0 fine, 1 something to look at, 2 problem, 64 usage. <code>STASH_HOME</code> moves the settings folder. Nothing leaves the PC except the encrypted backup. Free, MIT, built by Keith Adler; more at <a href="https://keithadler.github.io/">keithadler.github.io</a>.</p>
 </main></body></html>
