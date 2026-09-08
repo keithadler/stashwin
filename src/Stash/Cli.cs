@@ -8,7 +8,7 @@ namespace Stash;
 /// <summary>The command line. Exit codes: 0 fine, 1 something to look at, 2 problem, 64 usage.</summary>
 public static class Cli
 {
-    public const string Version = "0.1.0";
+    public const string Version = "1.0.0";
 
     [DllImport("kernel32.dll")] private static extern bool AttachConsole(int pid);
     [DllImport("kernel32.dll")] private static extern bool AllocConsole();
