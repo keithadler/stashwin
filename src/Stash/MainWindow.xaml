@@ -114,6 +114,7 @@
                         <ItemsControl ItemsSource="{Binding Snapshots}" ItemTemplate="{StaticResource SnapshotTemplate}" Margin="0,6,0,0"/>
                         <TextBlock x:Name="NoSnapshots" Text="No backup yet." Style="{StaticResource Small}" Margin="0,4,0,0"/>
                         <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="A snapshot is small on its own: unchanged files are stored once and shared. &quot;Frees&quot; is what deleting that snapshot alone would give back."/>
+                        <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="Keyboard: Ctrl+K the key or card, Ctrl+O add a folder, Ctrl+D add a destination, Ctrl+Enter back up, Ctrl+T verify, Ctrl+, settings."/>
                     </StackPanel>
                 </Border>
             </StackPanel>

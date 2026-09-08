@@ -27,6 +27,20 @@ public partial class MainWindow : Window
         Shell.Sources.CollectionChanged += (_, _) => Refresh();
         Shell.Destinations.CollectionChanged += (_, _) => Refresh();
         Shell.Snapshots.CollectionChanged += (_, _) => Refresh();
+        // Keyboard: Ctrl+K key or card, Ctrl+O add folder, Ctrl+D add destination, Ctrl+Enter back up, Ctrl+T verify, Ctrl+, settings.
+        PreviewKeyDown += (_, e) =>
+        {
+            if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0) return;
+            switch (e.Key)
+            {
+                case System.Windows.Input.Key.K: if (Shell.HasKey) ShowCard_Click(this, new RoutedEventArgs()); else MakeKey_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.O: AddSource_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.D: AddDestination_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.Enter: if (Shell.CanAct) BackUp_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.T: if (Shell.CanAct) Verify_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.OemComma: Settings_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+            }
+        };
     }
 
     private void Refresh()

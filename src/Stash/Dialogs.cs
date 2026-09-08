@@ -81,6 +81,7 @@ public sealed class RecoveryCardWindow : Window
             var col = new StackPanel { Margin = new Thickness(0, 0, 14, 0) };
             col.Children.Add(Ui.Text($"Word {_ask[j] + 1}", "Small"));
             _answers[j] = new TextBox { Width = 150 };
+            if (j == 0) _answers[j].Loaded += (s2, _) => ((TextBox)s2).Focus();
             col.Children.Add(_answers[j]);
             ask.Children.Add(col);
         }
@@ -89,7 +90,8 @@ public sealed class RecoveryCardWindow : Window
         panel.Children.Add(_wrong);
         var foot = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
         foot.Children.Add(Ui.Button(shell.Config.CardConfirmed ? "Close" : "Later", (_, _) => Close()));
-        foot.Children.Add(Ui.Button("I have the card", (_, _) => Confirm(), primary: true));
+        var confirm = Ui.Button("I have the card", (_, _) => Confirm(), primary: true); confirm.IsDefault = true;
+        foot.Children.Add(confirm);
         panel.Children.Add(foot);
         Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         MaxHeight = SystemParameters.WorkArea.Height - 40;
