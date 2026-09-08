@@ -42,7 +42,9 @@ public static class InteropSuite
         {
             var rel = Path.GetRelativePath(original, f).Normalize(System.Text.NormalizationForm.FormC);
             var restored = Path.Combine(restoredRoot, rel);
-            s.Check($"{rel.Replace("é", "e")} is identical", File.Exists(restored) && File.ReadAllBytes(restored).AsSpan().SequenceEqual(File.ReadAllBytes(f)));
+            var a = File.Exists(restored) ? File.ReadAllBytes(restored) : null; var b = File.ReadAllBytes(f);
+            s.Check($"{rel.Replace("é", "e")} is identical", a is not null && a.AsSpan().SequenceEqual(b),
+                a is null ? "not restored: " + restored : $"restored {a.Length} bytes {Convert.ToHexString(a.Take(24).ToArray())} vs fixture {b.Length} bytes {Convert.ToHexString(b.Take(24).ToArray())}");
         }
         // The two big files are not stored in the fixture: 4 MiB + 1 bytes of i % 251, so the chunk boundary is crossed by exactly one byte.
         var pattern = new byte[Chunk.Size + 1];
