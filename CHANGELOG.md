@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1, 2026-09-08
 
 - The schedule is registered through Task Scheduler's XML, so a run the PC slept through happens when it is next awake and running on battery is allowed (the `schtasks` defaults were neither).
 - Settings gains "Run even when I am not signed in" (`stash schedule ... --when-signed-out`): a service-for-user logon, no password stored. Windows cannot open the account-wrapped key under that logon, so the key is then wrapped for this PC instead, which an administrator on this PC could read; the toggle, Help and `stash status` all say so, and turning it off wraps the key for the account again. Verified in a VM with nobody signed in.

@@ -6,9 +6,9 @@ Free, MIT licensed, no account, no server, no subscription. The same format and 
 
 ## Download
 
-**[Download Stash-for-Windows-1.0.0-x64.exe](https://github.com/keithadler/stashwin/releases/latest/download/Stash-for-Windows-1.0.0-x64.exe)** for ordinary Intel and AMD PCs, or **[Stash-for-Windows-1.0.0-arm64.exe](https://github.com/keithadler/stashwin/releases/latest/download/Stash-for-Windows-1.0.0-arm64.exe)** for Windows on ARM. Windows 10 or 11. One exe, no installer, no runtime to install; put it anywhere and double-click.
+**[Download Stash-for-Windows-1.0.1-x64.exe](https://github.com/keithadler/stashwin/releases/latest/download/Stash-for-Windows-1.0.1-x64.exe)** for ordinary Intel and AMD PCs, or **[Stash-for-Windows-1.0.1-arm64.exe](https://github.com/keithadler/stashwin/releases/latest/download/Stash-for-Windows-1.0.1-arm64.exe)** for Windows on ARM. Windows 10 or 11. One exe, no installer, no runtime to install; put it anywhere and double-click.
 
-The console twin for scripts and the schedule: [stash-1.0.0-x64.exe](https://github.com/keithadler/stashwin/releases/latest/download/stash-1.0.0-x64.exe) and [stash-1.0.0-arm64.exe](https://github.com/keithadler/stashwin/releases/latest/download/stash-1.0.0-arm64.exe). Put it next to the app as `stash.exe` so the schedule can run it.
+The console twin for scripts and the schedule: [stash-1.0.1-x64.exe](https://github.com/keithadler/stashwin/releases/latest/download/stash-1.0.1-x64.exe) and [stash-1.0.1-arm64.exe](https://github.com/keithadler/stashwin/releases/latest/download/stash-1.0.1-arm64.exe). Put it next to the app as `stash.exe` so the schedule can run it.
 
 The first time, Windows SmartScreen says it does not recognise the app: click **More info**, then **Run anyway**. That is once. The app is signed by its author, not by a certificate bought from a vendor, and says so. It never asks to be an administrator: backups are your own files into your own folders.
 
