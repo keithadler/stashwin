@@ -11,6 +11,11 @@ namespace Stash;
 
 internal static class Ui
 {
+    /// <summary>A check box whose label wraps instead of running off the window.</summary>
+    public static CheckBox Check(string text, bool on, Thickness? margin = null)
+        => new() { Content = new TextBlock { Text = L.T(text), TextWrapping = TextWrapping.Wrap }, IsChecked = on, Margin = margin ?? new Thickness(0), Foreground = B("Ink") };
+    public static RadioButton Radio(string text, bool on, Thickness? margin = null)
+        => new() { Content = new TextBlock { Text = L.T(text), TextWrapping = TextWrapping.Wrap }, IsChecked = on, Margin = margin ?? new Thickness(0), Foreground = B("Ink") };
     public static Brush B(string key) => (Brush)Application.Current.Resources[key];
     public static Style S(string key) => (Style)Application.Current.Resources[key];
     public static TextBlock Text(string text, string? style = null, Thickness? margin = null)
@@ -242,7 +247,7 @@ public sealed class SettingsWindow : Window
 {
     public SettingsWindow(Shell shell)
     {
-        Title = L.T("Settings"); Width = 560; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner; Background = Ui.B("Ground");
+        Title = L.T("Settings"); Width = 640; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner; Background = Ui.B("Ground");
         SourceInitialized += (_, _) => Theme.DecorateTitleBar(this);
         var cfg = shell.Config;
         var panel = new StackPanel { Margin = new Thickness(28, 22, 28, 20) };
@@ -256,9 +261,9 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(Ui.Text("A Task Scheduler task for this user runs the backup whether or not the window is open, only to destinations that are reachable, uploading only what changed.", "Small", new Thickness(0, 4, 0, 0)));
 
         panel.Children.Add(Ui.Text("How many snapshots to keep", "H2", new Thickness(0, 14, 0, 4)));
-        var last = new RadioButton { Content = L.T("The newest"), IsChecked = cfg.Retention != "thin", Margin = new Thickness(0, 0, 8, 0), VerticalContentAlignment = VerticalAlignment.Center, Foreground = Ui.B("Ink") };
+        var last = Ui.Radio("The newest", cfg.Retention != "thin", new Thickness(0, 0, 8, 0)); last.VerticalContentAlignment = VerticalAlignment.Center;
         var keep = new TextBox { Width = 60, Text = cfg.KeepSnapshots.ToString() };
-        var thin = new RadioButton { Content = L.T("Thin out over time: every one from the last week, one a day for a month, one a week for a year, one a month after that"), IsChecked = cfg.Retention == "thin", Margin = new Thickness(0, 6, 0, 0), Foreground = Ui.B("Ink") };
+        var thin = Ui.Radio("Thin out over time: every one from the last week, one a day for a month, one a week for a year, one a month after that", cfg.Retention == "thin", new Thickness(0, 6, 0, 0));
         var row = new StackPanel { Orientation = Orientation.Horizontal }; row.Children.Add(last); row.Children.Add(keep); row.Children.Add(Ui.Text(" snapshots", null, new Thickness(6, 0, 0, 0)));
         panel.Children.Add(row); panel.Children.Add(thin);
         panel.Children.Add(Ui.Text("Older snapshots and the pieces only they used are deleted after each backup, so the destination stays a sensible size.", "Small", new Thickness(0, 4, 0, 0)));
@@ -273,14 +278,14 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(maxRow);
         panel.Children.Add(Ui.Text("Name patterns, comma separated. Files and folders whose name matches are left out. Virtual machine disks are skipped by default: they are huge and change constantly.", "Small", new Thickness(0, 4, 0, 0)));
 
-        var readAll = new CheckBox { Content = L.T("Read every file every time, instead of trusting size and modified time for unchanged files (slower, thorough)"), IsChecked = cfg.ReadAll, Margin = new Thickness(0, 10, 0, 0) };
+        var readAll = Ui.Check("Read every file every time, instead of trusting size and modified time for unchanged files (slower, thorough)", cfg.ReadAll, new Thickness(0, 10, 0, 0));
         panel.Children.Add(readAll);
-        var weekly = new CheckBox { Content = L.T("Check the backup once a week: open every piece and restore one random file"), IsChecked = cfg.WeeklyVerify, Margin = new Thickness(0, 14, 0, 0) };
+        var weekly = Ui.Check("Check the backup once a week: open every piece and restore one random file", cfg.WeeklyVerify, new Thickness(0, 14, 0, 0));
         panel.Children.Add(weekly);
         panel.Children.Add(Ui.Text("The app", "H2", new Thickness(0, 14, 0, 4)));
-        var tray = new CheckBox { Content = L.T("Stay in the tray when the window closes, with the last and next backup"), IsChecked = cfg.Tray };
-        var login = new CheckBox { Content = L.T("Open at sign-in, in the tray"), IsChecked = Startup.IsEnabled(), Margin = new Thickness(0, 6, 0, 0) };
-        var updates = new CheckBox { Content = L.T("Check GitHub once a day for a new version"), IsChecked = cfg.UpdateCheck, Margin = new Thickness(0, 6, 0, 0) };
+        var tray = Ui.Check("Stay in the tray when the window closes, with the last and next backup", cfg.Tray);
+        var login = Ui.Check("Open at sign-in, in the tray", Startup.IsEnabled(), new Thickness(0, 6, 0, 0));
+        var updates = Ui.Check("Check GitHub once a day for a new version", cfg.UpdateCheck, new Thickness(0, 6, 0, 0));
         panel.Children.Add(tray); panel.Children.Add(login); panel.Children.Add(updates);
         panel.Children.Add(Ui.Text("The update check is one request for a version number, with no identifiers, and the only thing this app ever sends anywhere other than your destinations. A new version is offered as a link; nothing installs by itself.", "Small", new Thickness(0, 4, 0, 0)));
 
