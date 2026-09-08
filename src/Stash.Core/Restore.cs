@@ -56,7 +56,7 @@ public static class Restore
         {
             var f = wanted[n];
             var sourceName = Path.GetFileName(m.Sources[f.Source].TrimEnd('/', '\\'));
-            var outPath = Path.Combine(target, sourceName, f.Path.Replace('/', Path.DirectorySeparatorChar));
+            var outPath = Path.Combine(target, sourceName, f.Path.Normalize(System.Text.NormalizationForm.FormC).Replace('/', Path.DirectorySeparatorChar));
             var tmp = outPath + ".stash-partial";
             try
             {
@@ -113,7 +113,7 @@ public static class Restore
             {
                 var r = Run(latest, store, key, tmp, new[] { pick.Path });
                 var sourceName = Path.GetFileName(m.Sources[pick.Source].TrimEnd('/', '\\'));
-                var restored = Path.Combine(tmp, sourceName, pick.Path.Replace('/', Path.DirectorySeparatorChar));
+                var restored = Path.Combine(tmp, sourceName, pick.Path.Normalize(System.Text.NormalizationForm.FormC).Replace('/', Path.DirectorySeparatorChar));
                 long size = File.Exists(restored) ? new FileInfo(restored).Length : -1;
                 report.SampleOk = r.Failed.Count == 0 && size == pick.Size;
             }

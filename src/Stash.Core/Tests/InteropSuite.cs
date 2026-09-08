@@ -40,9 +40,9 @@ public static class InteropSuite
         var restoredRoot = Path.Combine(t.Path, Path.GetFileName(original));
         foreach (var f in Directory.EnumerateFiles(original, "*", SearchOption.AllDirectories))
         {
-            var rel = Path.GetRelativePath(original, f);
+            var rel = Path.GetRelativePath(original, f).Normalize(System.Text.NormalizationForm.FormC);
             var restored = Path.Combine(restoredRoot, rel);
-            s.Check($"{rel} is identical", File.Exists(restored) && File.ReadAllBytes(restored).AsSpan().SequenceEqual(File.ReadAllBytes(f)));
+            s.Check($"{rel.Replace("é", "e")} is identical", File.Exists(restored) && File.ReadAllBytes(restored).AsSpan().SequenceEqual(File.ReadAllBytes(f)));
         }
         // The two big files are not stored in the fixture: 4 MiB + 1 bytes of i % 251, so the chunk boundary is crossed by exactly one byte.
         var pattern = new byte[Chunk.Size + 1];

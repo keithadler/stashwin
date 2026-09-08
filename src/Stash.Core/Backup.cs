@@ -61,7 +61,7 @@ public static class Backup
                 if ((e.Attributes & FileAttributes.ReparsePoint) != 0) continue;
                 if (e is DirectoryInfo) { stack.Push(e.FullName); continue; }
                 if (e is not FileInfo fi) continue;
-                var rel = fi.FullName[(rootFull.Length + 1)..].Replace('\\', '/');
+                var rel = fi.FullName[(rootFull.Length + 1)..].Replace('\\', '/').Normalize(System.Text.NormalizationForm.FormC); // NTFS keeps NFC and NFD apart; the Mac treats them as one name
                 if (FolderStore.IsDataless(fi.FullName)) { placeholders.Add(rel); continue; }
                 if (rules.MaxFileBytes > 0 && fi.Length > rules.MaxFileBytes) { skipped++; continue; }
                 files.Add(new Walked(rel, fi.FullName, fi.Length, new DateTimeOffset(fi.LastWriteTimeUtc, TimeSpan.Zero)));
