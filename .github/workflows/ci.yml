@@ -1,0 +1,21 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Self-test (engine, on temp folders, with the Mac-made fixture)
+        run: |
+          dotnet build src/Stash.Selftest -c Release --nologo
+          dotnet src/Stash.Selftest/bin/Release/net9.0/Stash.Selftest.dll
+      - name: Build the app (x64 and arm64, window and console)
+        run: |
+          dotnet publish src/Stash/Stash.csproj -c Release -r win-x64 --nologo -o dist/win-x64
+          dotnet publish src/Stash/Stash.csproj -c Release -r win-arm64 --nologo -o dist/win-arm64
+          dotnet publish src/Stash/Stash.csproj -c Release -r win-x64 --nologo -o dist/win-x64-cli -p:CliBuild=true
+      - name: Integration through the console twin
+        run: pwsh tests/integration.ps1 dist/win-x64-cli/stash.exe

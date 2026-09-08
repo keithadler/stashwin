@@ -7,6 +7,7 @@
     <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -41,7 +42,13 @@
     <ProjectReference Include="../Stash.Core/Stash.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- WinForms is only for the tray icon; keep its namespaces out of every other file. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="../../icon/stash-256.png" Link="Assets/stash-256.png" Condition="Exists('../../icon/stash-256.png')" />
     <EmbeddedResource Include="../../docs/Help.html" LogicalName="Help.html" Condition="Exists('../../docs/Help.html')" />
+    <EmbeddedResource Include="../../docs/Help.es.html" LogicalName="Help.es.html" Condition="Exists('../../docs/Help.es.html')" />
   </ItemGroup>
 </Project>

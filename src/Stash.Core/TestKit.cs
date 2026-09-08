@@ -38,6 +38,7 @@ public static class SelfTest
         Tests.BackupSuite.Run,
         Tests.PruneSuite.Run,
         Tests.InteropSuite.Run,
+        Tests.ExtrasSuite.Run,
     };
 
     public static int Run(TextWriter output, string? filter = null, bool list = false)

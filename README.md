@@ -20,7 +20,8 @@ The first time, Windows SmartScreen says it does not recognise the app: click **
 
 - **Backs up the folders you choose to several places at once**: your OneDrive folder and your Google Drive folder and an external disk, each a complete copy. An account can be lost, a disk can fail; two destinations survive either, and the app nags until you have two.
 - **On a schedule**: every hour or once a day, as a Task Scheduler task for your account, only to destinations that are reachable right now, uploading only what changed. No window needs to be open, no service runs.
-- **Checks itself**: Verify opens every piece of the latest snapshot and restores one random file to prove the whole path works, and tells you in plain words. A backup that has never been verified is a guess.
+- **Checks itself**: once a week, riding along with the schedule, it opens every piece of the latest snapshot and restores one random file to prove the whole path works, and tells you in plain words. A backup that has never been verified is a guess.
+- **Sits in the tray** with the last backup and the next one, Back Up Now and Verify a right-click away, and one balloon when a scheduled backup fails. Opens at sign-in by default; both are toggles in Settings.
 - **Encrypted before it leaves the PC**, with a key that lives on a card you keep, never with the provider and never with anyone else.
 - **Restores a file, a folder, or everything** from any snapshot to a place you choose, and shows what every snapshot is costing you so old ones can be thinned out.
 
@@ -30,11 +31,11 @@ The first time, Windows SmartScreen says it does not recognise the app: click **
 - Keep a copy of your key anywhere but this PC, wrapped by Windows' own data protection for your account. The recovery card is the only other copy, and the app says so before you can continue. Lose the card and the backup is unreadable, by anyone, including you.
 - Restore a piece that fails authentication. Damaged or tampered data is reported, never written.
 - Download cloud placeholders behind your back. A OneDrive, Google Drive, Dropbox or iCloud file that is not actually on the PC is listed in the snapshot as skipped, not fetched.
-- Connect to anything. There is no update check, no analytics, no crash reporting. The only bytes that leave the PC go to the destination folders you chose, encrypted first.
+- Send anything about you anywhere. No analytics, no crash reporting, no account. The only bytes that leave the PC go to the destination folders you chose, encrypted first, plus one request a day to GitHub for a version number, which carries no identifiers and switches off in Settings.
 
 ## The key
 
-Stash makes a random 256-bit key. You keep it as **24 words** (BIP-39, with a checksum so a typo is caught before a restore starts) and an eight-character **fingerprint** so two cards can be told apart. The card can be saved as text, printed, or copied. Everything else is derived from the key: the piece encryption key, the piece naming key, the manifest key. There is no password, so there is nothing to guess.
+Stash makes a random 256-bit key. You keep it three ways, all on one card: **24 words** (BIP-39, with a checksum so a typo is caught before a restore starts), a **QR code** of the same key that a phone camera or Stash for Mac can scan, and an eight-character **fingerprint** so two cards can be told apart. The card can be saved as an image or text, printed, or copied. Everything else is derived from the key: the piece encryption key, the piece naming key, the manifest key. There is no password, so there is nothing to guess.
 
 The words are the Mac app's too. Enter a card made on a Mac and this PC reads that backup; make one here and a Mac reads this one.
 
@@ -46,6 +47,10 @@ See [docs/threat-model.md](docs/threat-model.md). In short: the provider, or any
 
 `stash.exe` is the same program as a console app, for scripts and remote sessions. `status`, `key new|show|card|restore|forget`, `add`, `dest`, `providers`, `backup`, `snapshots`, `restore`, `verify`, `prune`, `schedule`, `seal`, `open`, `selftest`, all with `--json` where it makes sense. `stash help` lists them.
 
+## Measured
+
+Measured with `tests/perf.ps1` on a Windows 11 ARM64 virtual machine (4 cores, an emulated disk, so a real PC is faster), 250 files of 4 MB to a local folder: first backup 14.4 s, an unchanged second backup 1.0 s, verify 14.0 s, full restore 15.6 s, never more than 160 MB of memory. Files stream through in 4 MB pieces, so a 20 GB video never sits in memory.
+
 ## Build it yourself
 
 .NET 9 SDK on Windows, or on a Mac with `EnableWindowsTargeting` (the project sets it):
@@ -54,8 +59,8 @@ See [docs/threat-model.md](docs/threat-model.md). In short: the provider, or any
 scripts/publish.sh all
 ```
 
-writes the four exes into `dist/`. `dotnet run --project src/Stash.Selftest` runs the engine's self-tests anywhere; `tests/fixtures` is a stash made by Stash for Mac that the interop suite restores.
+writes the four exes into `dist/`. Tests three ways: `dotnet run --project src/Stash.Selftest` runs the engine's suites anywhere (`tests/fixtures` is a stash made by Stash for Mac that the interop suite restores), `stash selftest` runs the same suites from the shipped exe, and `pwsh tests/integration.ps1` drives the console twin end to end. CI does all three on every push.
 
 ## Privacy, licence, family
 
-Nothing leaves the PC except the encrypted backup, to the places you chose. See [PRIVACY.md](PRIVACY.md). MIT. Built by Keith Adler; more from the same maker at [keithadler.github.io](https://keithadler.github.io/).
+Nothing about you leaves the PC; the backup goes to the places you chose, encrypted first. See [PRIVACY.md](PRIVACY.md). The window and Help speak English and Spanish, following Windows' display language. MIT. Built by Keith Adler; more from the same maker at [keithadler.github.io](https://keithadler.github.io/).

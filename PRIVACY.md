@@ -8,4 +8,4 @@ Settings (which folders, which destinations, the schedule) are a plain JSON file
 
 Cloud placeholders (files a provider has not actually downloaded to this PC) are listed in the snapshot as skipped and never opened, so the app never makes a provider download anything on your behalf.
 
-Nothing is sent anywhere. No update check, no analytics, no crash reporting, no account. The app never asks to run as an administrator.
+Nothing about you is sent anywhere. No analytics, no crash reporting, no account. The one optional network request is the daily update check: one GET to GitHub's releases API for a version number, with no identifiers, on by default and a switch in Settings. The app never asks to run as an administrator.

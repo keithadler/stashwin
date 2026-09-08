@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Ayuda de Stash for Windows</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; --fg: #1c1f1c; --muted: #5e655f; --bg: #fff; --card: #f3f5f3; --accent: #1f7a4a; --line: #e2e5e2; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f1f4f1; --muted: #a0a8a1; --bg: #1a1d1a; --card: #252925; --accent: #6fcf97; --line: #363b36; } }
+  body { margin: 0; font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 4px; } h1 small { display: block; font-size: 15px; font-weight: 400; color: var(--muted); }
+  h2 { font-size: 20px; margin: 36px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .muted { color: var(--muted); }
+  code, pre { font: 13px "Cascadia Mono", Consolas, ui-monospace, monospace; } pre { background: var(--card); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+  .card { background: var(--card); border-radius: 10px; padding: 14px 16px; margin: 12px 0; } .warn { border-left: 4px solid #d9a400; }
+  nav a { margin-right: 14px; color: var(--accent); text-decoration: none; } a { color: var(--accent); }
+</style></head>
+<body><main>
+<h1>Stash for Windows <small>Ayuda</small></h1>
+<p class="muted">Copia de seguridad cifrada de las carpetas que importan, en el almacenamiento que ya tienes. El proveedor solo ve texto cifrado. Tu clave son 24 palabras en una tarjeta. Sin contraseña, sin recuperación, sin servidor.</p>
+<nav><a href="#start">Primeros pasos</a><a href="#key">La clave y la tarjeta</a><a href="#where">Dónde va</a><a href="#schedule">Programación</a><a href="#restore">Restaurar y verificar</a><a href="#snapshots">Instantáneas</a><a href="#mac">Con Stash for Mac</a><a href="#limits">Límites honestos</a><a href="#cli">Línea de comandos</a></nav>
+
+<h2 id="start">Primeros pasos</h2>
+<ol>
+<li><b>Crea una clave.</b> La app muestra una tarjeta con 24 palabras y un código QR. Anótalas, guarda la tarjeta como imagen o texto, o imprímela. Te pide tres de las palabras para comprobar que la tienes. Stash no guarda ninguna copia.</li>
+<li><b>Añade carpetas.</b> Documentos, Imágenes, Escritorio, un proyecto. Las unidades enteras se rechazan; elige las carpetas que importan.</li>
+<li><b>Añade destinos.</b> La app ofrece las carpetas de OneDrive, Google Drive, Dropbox o iCloud que encuentra en este PC. También vale cualquier otra carpeta, un disco externo o un NAS. Dos son más seguros que uno.</li>
+<li><b>Copiar ahora.</b> Después, en Ajustes, elige una programación.</li>
+</ol>
+
+<h2 id="key">La clave y la tarjeta</h2>
+<p>La clave son 256 bits aleatorios, mostrados como 24 palabras de una lista fija con una suma de comprobación, así que una palabra mal escrita se detecta antes de restaurar nada. La huella de ocho caracteres distingue dos tarjetas. El QR lleva la misma clave; lo lee un teléfono o Stash for Mac. En este PC la clave queda protegida por la Protección de datos de Windows para tu cuenta; en la tarjeta está la única otra copia.</p>
+<div class="card warn">Si pierdes la tarjeta, nadie puede leer la copia, tú incluido. No hay contraseña que restablecer ni soporte que pueda ayudar. Trata la tarjeta como un pasaporte.</div>
+<p><b>Olvidar esta clave</b> la elimina de este PC. Las copias siguen donde están, cifradas, y la tarjeta las recupera en cualquier PC o Mac.</p>
+
+<h2 id="where">Dónde va</h2>
+<p>Dentro de cada destino la app crea una carpeta llamada <code>Stash for Mac</code> (el nombre con el que nació el formato, conservado para que una tarjeta sirva en ambos), después una carpeta con la huella de la clave y dentro <code>chunks</code> y <code>manifests</code>. Todo lo que hay ahí está cifrado. Un README lo explica a quien lo encuentre.</p>
+<p>Las piezas son de 4 MB y se nombran con un hash con clave de su contenido, así que un archivo que no cambia se guarda una sola vez y lo comparten todas las instantáneas. El proveedor no puede saber qué es una pieza ni si dos personas guardaron el mismo archivo.</p>
+<p>Un destino que no está disponible (un disco desconectado, un NAS apagado) se omite y la app lo dice.</p>
+
+<h2 id="schedule">Programación</h2>
+<p>Ajustes ofrece cada hora o una vez al día a las 20:00. La app registra una tarea del Programador de tareas para tu cuenta que ejecuta <code>stash.exe backup --scheduled</code>, así que las copias se hacen esté o no abierta la ventana, sin servicio y sin administrador. La comprobación semanal viaja con la programación. El icono de la bandeja muestra la última copia y la siguiente, y avisa una sola vez cuando una copia programada falla.</p>
+
+<h2 id="restore">Restaurar y verificar</h2>
+<p><b>Restaurar</b> en una instantánea abre la lista de todos sus archivos. Selecciona algunos, o restaura todo, y elige dónde van: los archivos llegan a una carpeta con el nombre de la original, y nada en la ubicación original se toca. Una pieza que falla su comprobación se informa y nunca se escribe.</p>
+<p><b>Verificar</b> abre cada pieza de la última instantánea y restaura un archivo al azar en una carpeta temporal para demostrar que todo el camino funciona. Las piezas que una carpeta en la nube mantiene solo en línea se cuentan, no se descargan.</p>
+
+<h2 id="snapshots">Instantáneas</h2>
+<p>Cada copia es una instantánea: la lista de archivos en ese momento y las piezas que los reconstruyen. <b>Libera</b> es lo que devuelve borrar solo esa instantánea. Tras cada copia la app conserva las N más recientes (30 por defecto) o aclara con el tiempo: todas las de la última semana, una al día durante un mes, una a la semana durante un año, una al mes después.</p>
+
+<h2 id="mac">Con Stash for Mac</h2>
+<p>Mismo formato, mismas palabras. Introduce aquí la tarjeta de un Mac y añade la misma carpeta de destino: aparecen las instantáneas del Mac y se restauran. Crea una clave aquí y un Mac lee las copias de este PC.</p>
+
+<h2 id="limits">Límites honestos</h2>
+<ul>
+<li>Los marcadores de posición en la nube (archivos que el proveedor no ha descargado a este PC) se listan como omitidos, nunca se descargan por ti.</li>
+<li>El proveedor, o cualquiera con tu contraseña del proveedor, puede borrar la carpeta entera. Dos destinos.</li>
+<li>Quien tenga tu PC desbloqueado y la app abierta tiene la clave. Ninguna herramienta de copia sobrevive a eso.</li>
+<li>Las piezas son de 4 MB fijos; una pequeña edición en un archivo grande sube piezas nuevas, no unos bytes.</li>
+<li>La comprobación de versión pide a GitHub un número de versión una vez al día, sin identificadores; se desactiva en Ajustes. Es lo único que la app envía fuera de tus destinos.</li>
+</ul>
+
+<h2 id="cli">Línea de comandos</h2>
+<p><code>stash.exe</code> es el mismo programa como aplicación de consola.</p>
+<pre>stash key new | show | card &lt;archivo.txt|.png&gt; | restore "&lt;24 palabras&gt;" | forget
+stash add &lt;carpeta&gt;      stash dest &lt;carpeta&gt;      stash providers
+stash backup [--json]    stash snapshots           stash restore latest &lt;destino&gt; [--only a,b]
+stash verify             stash prune [--keep N | --thin]    stash schedule off|hourly|daily
+stash update             stash status [--json]     stash selftest</pre>
+<p>Códigos de salida: 0 bien, 1 algo que mirar, 2 problema, 64 uso. Gratis, MIT, hecho por Keith Adler; más en <a href="https://keithadler.github.io/">keithadler.github.io</a>.</p>
+</main></body></html>

@@ -13,11 +13,24 @@ namespace Stash;
 public partial class MainWindow : Window
 {
     public Shell Shell { get; }
+    public bool TrayEnabled { get; set; }
+    public bool ReallyClose { get; set; }
+
+    public void BackUpFromTray() => BackUp_Click(this, new RoutedEventArgs());
+    public void VerifyFromTray() => Verify_Click(this, new RoutedEventArgs());
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        // With the tray on, closing the window keeps the app in the tray, like the Mac's menu bar item. Quit is in the tray menu.
+        if (TrayEnabled && !ReallyClose) { e.Cancel = true; Hide(); return; }
+        base.OnClosing(e);
+    }
 
     public MainWindow(Shell shell)
     {
         Shell = shell;
         InitializeComponent();
+        L.Localize(this);
         DataContext = Shell;
         Width = Math.Min(Width, SystemParameters.WorkArea.Width - 24);
         Height = Math.Min(Height, SystemParameters.WorkArea.Height - 24);
@@ -52,7 +65,7 @@ public partial class MainWindow : Window
 
     private static string? PickFolder(Window owner, string title)
     {
-        var dlg = new OpenFolderDialog { Title = title, Multiselect = false };
+        var dlg = new OpenFolderDialog { Title = L.T(title), Multiselect = false };
         return dlg.ShowDialog(owner) == true ? dlg.FolderName : null;
     }
 
@@ -67,7 +80,7 @@ public partial class MainWindow : Window
     private void ShowCard_Click(object sender, RoutedEventArgs e) { if (Shell.Key is { } k) new RecoveryCardWindow(Shell, k) { Owner = this }.ShowDialog(); }
     private void ForgetKey_Click(object sender, RoutedEventArgs e)
     {
-        var r = MessageBox.Show(this, "Remove the key from this PC? The backups stay where they are, encrypted, and only the card can read them again. Make sure you have the card.", "Stash for Windows", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        var r = MessageBox.Show(this, L.T("Remove the key from this PC? The backups stay where they are, encrypted, and only the card can read them again. Make sure you have the card."), "Stash for Windows", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (r == MessageBoxResult.OK) { Shell.ForgetKey(); Refresh(); }
     }
 
@@ -99,6 +112,7 @@ public partial class MainWindow : Window
         Shell.Load();
         Shell.LastLine = outcome.Message;
         Refresh();
+        (Application.Current as App)?.RefreshTray();
         if (!outcome.Ok) MessageBox.Show(this, outcome.Message, "Stash for Windows", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
@@ -106,12 +120,12 @@ public partial class MainWindow : Window
     {
         if (!Shell.Config.CardConfirmed && Shell.Key is { } k)
         {
-            var r = MessageBox.Show(this, "You have not confirmed the recovery card yet. Without it the backup can never be read. Show the card now?", "Stash for Windows", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var r = MessageBox.Show(this, L.T("You have not confirmed the recovery card yet. Without it the backup can never be read. Show the card now?"), "Stash for Windows", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (r == MessageBoxResult.Yes) { new RecoveryCardWindow(Shell, k) { Owner = this }.ShowDialog(); if (!Shell.Config.CardConfirmed) return; }
         }
-        await RunBusy("Backing up", p => Shell.BackUp(p));
+        await RunBusy(L.T("Backing up"), p => Shell.BackUp(p));
     }
-    private async void Verify_Click(object sender, RoutedEventArgs e) => await RunBusy("Checking the backup", p => Shell.Verify(p));
+    private async void Verify_Click(object sender, RoutedEventArgs e) => await RunBusy(L.T("Checking the backup"), p => Shell.Verify(p));
 
     private void Restore_Click(object sender, RoutedEventArgs e)
     {
@@ -122,24 +136,32 @@ public partial class MainWindow : Window
     private void ForgetSnapshot_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as Button)?.Tag is not SnapshotRow snap) return;
-        var r = MessageBox.Show(this, $"Delete the snapshot from {snap.When}? Files that exist only in this snapshot are gone for good; files that also exist in other snapshots are unaffected. Frees {Shell.Human(snap.Frees)}.", "Stash for Windows", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        var r = MessageBox.Show(this, L.F("Delete the snapshot from {0}? Files that exist only in this snapshot are gone for good; files that also exist in other snapshots are unaffected. Frees {1}.", snap.When, Shell.Human(snap.Frees)), "Stash for Windows", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (r != MessageBoxResult.OK) return;
         var outcome = Shell.ForgetSnapshot(snap);
         Shell.Load(); Shell.LastLine = outcome.Message; Refresh();
     }
 
-    private void Settings_Click(object sender, RoutedEventArgs e) { new SettingsWindow(Shell) { Owner = this }.ShowDialog(); Shell.Load(); Refresh(); }
+    private void Settings_Click(object sender, RoutedEventArgs e) { new SettingsWindow(Shell) { Owner = this }.ShowDialog(); Shell.Load(); Refresh(); TrayEnabled = Shell.Config.Tray; (Application.Current as App)?.RefreshTray(); }
+    private void Update_Click(object sender, RoutedEventArgs e)
+    {
+        if (Shell.UpdatePage is { } p) { try { Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); } catch { } }
+    }
+    private void SkipUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        var c = Shell.Config; c.SkippedVersion = Shell.UpdateLine.Replace("Version ", "").Replace(" is available.", ""); c.Save(); Shell.UpdateLine = "";
+    }
     private void About_Click(object sender, RoutedEventArgs e) => new AboutDialog { Owner = this }.ShowDialog();
     private void Help_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var path = Path.Combine(Path.GetTempPath(), "Stash for Windows Help.html");
-            using var res = typeof(MainWindow).Assembly.GetManifestResourceStream("Help.html") ?? throw new InvalidOperationException("Help is not bundled");
+            using var res = (L.Spanish ? typeof(MainWindow).Assembly.GetManifestResourceStream("Help.es.html") : null) ?? typeof(MainWindow).Assembly.GetManifestResourceStream("Help.html") ?? throw new InvalidOperationException("Help is not bundled");
             using (var file = File.Create(path)) res.CopyTo(file);
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
-        catch (Exception ex) { MessageBox.Show(this, "Could not open Help: " + ex.Message, "Stash for Windows"); }
+        catch (Exception ex) { MessageBox.Show(this, L.T("Could not open Help: ") + ex.Message, "Stash for Windows"); }
     }
 }
 

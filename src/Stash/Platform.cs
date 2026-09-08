@@ -65,6 +65,14 @@ public sealed class Config
     public int MaxFileMB { get; set; }
     public bool WeeklyVerify { get; set; } = true;
     public bool CardConfirmed { get; set; }
+    public bool UpdateCheck { get; set; } = true;
+    public DateTimeOffset? LastUpdateCheck { get; set; }
+    public string? SkippedVersion { get; set; }
+    public bool OpenAtSignIn { get; set; } = true;
+    public bool OpenAtSignInOffered { get; set; }
+    public bool Tray { get; set; } = true;
+    public string? LastScheduledResult { get; set; }
+    public DateTimeOffset? LastScheduledAt { get; set; }
 
     [JsonIgnore] public Rules Rules => new() { Excludes = Excludes.ToList(), MaxFileBytes = (long)MaxFileMB * 1_048_576 };
     [JsonIgnore] public Retention.Policy Policy => Retention == "thin" ? Core.Retention.Policy.Thin : Core.Retention.Policy.Last;
@@ -106,6 +114,25 @@ public sealed class Config
         var p = Path.GetFullPath(folder);
         foreach (var s in Sources) if (IsInside(p, s) || IsInside(s, p)) return $"{Path.GetFileName(p.TrimEnd('\\'))} overlaps {Path.GetFileName(s.TrimEnd('\\'))}, which is backed up. A backup must not contain itself.";
         return null;
+    }
+}
+
+/// <summary>Open at sign-in: one Run value for this user, registered once, a toggle in Settings, like the Mac's login item.</summary>
+public static class Startup
+{
+    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    public static bool IsEnabled()
+    {
+        try { using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKey); return k?.GetValue("Stash for Windows") is string; } catch { return false; }
+    }
+    public static void Set(bool on)
+    {
+        try
+        {
+            using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKey)!;
+            if (on) k.SetValue("Stash for Windows", $"\"{Environment.ProcessPath}\" --tray"); else k.DeleteValue("Stash for Windows", false);
+        }
+        catch { }
     }
 }
 

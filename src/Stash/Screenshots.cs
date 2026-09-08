@@ -11,14 +11,15 @@ namespace Stash;
 /// <summary>Renders the windows from sample data to PNG files, for the README and the cards.</summary>
 public static class Screenshots
 {
-    public static int Render(string dir, TextWriter o, bool announce = false, bool dark = false)
+    public static int Render(string dir, TextWriter o, bool announce = false, bool dark = false, bool spanish = false)
     {
         Directory.CreateDirectory(dir);
+        if (spanish) L.Spanish = true;
         var app = Application.Current ?? new App();
         if (app.Resources.Count == 0) (app as App)?.InitializeComponent();
         Theme.Apply(app, dark);
         var shell = Demo.Shell();
-        var suffix = dark ? "-dark" : "";
+        var suffix = (dark ? "-dark" : "") + (spanish ? "-es" : "");
         var window = new MainWindow(shell) { Width = 980, Height = 820, WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowInTaskbar = false };
         window.Show();
         window.UpdateLayout();

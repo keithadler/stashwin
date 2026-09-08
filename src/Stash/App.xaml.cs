@@ -8,16 +8,40 @@ namespace Stash;
 
 public partial class App : Application
 {
+    public static bool StartHidden { get; set; }
+    private Tray? _tray;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         Theme.Apply(this);
         DispatcherUnhandledException += (_, ex) => Paths.Log_("unhandled: " + ex.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, ex) => Paths.Log_("fatal: " + ex.ExceptionObject);
-        var window = new MainWindow(new Shell());
+        var shell = new Shell();
+        var window = new MainWindow(shell);
         MainWindow = window;
-        window.Show();
+        // Open at sign-in, registered once, like the Mac's login item; a toggle in Settings after that.
+        var cfg = shell.Config;
+        if (!cfg.OpenAtSignInOffered) { global::Stash.Startup.Set(cfg.OpenAtSignIn); cfg.OpenAtSignInOffered = true; cfg.Save(); }
+        if (cfg.Tray) _tray = new Tray(window);
+        window.TrayEnabled = cfg.Tray;
+        if (!StartHidden) window.Show();
+        Exit += (_, _) => _tray?.Dispose();
+        // The daily update check, 20 seconds after launch when due and enabled. One GET, no identifiers.
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        timer.Tick += async (_, _) =>
+        {
+            timer.Interval = TimeSpan.FromHours(1);
+            var c = Config.Load();
+            if (!Stash.Core.Updates.ShouldCheck(c.UpdateCheck, c.LastUpdateCheck, DateTimeOffset.Now)) return;
+            var r = await UpdateCheck.Now(c);
+            if (r is Stash.Core.Updates.Available a && a.Version != c.SkippedVersion) shell.UpdateLine = L.F("Version {0} is available.", a.Version);
+            shell.UpdatePage = r is Stash.Core.Updates.Available b ? b.Page : null;
+        };
+        timer.Start();
     }
+
+    public void RefreshTray() => _tray?.Refresh();
 }
 
 /// <summary>Follows the Windows light or dark setting: swaps the brush palette and asks DWM for a matching title bar.</summary>

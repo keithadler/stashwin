@@ -30,7 +30,7 @@ public sealed class DestinationRow
     public int Snapshots { get; }
     public DateTimeOffset? Last { get; }
     public string Name => System.IO.Path.GetFileName(Path.TrimEnd('\\', '/'));
-    public string Detail => !Reachable ? "Not reachable right now; skipped until it is back." : Snapshots == 0 ? "No backup here yet." : $"{Snapshots} snapshot{(Snapshots == 1 ? "" : "s")}, {Shell.Human(Size)} used, last {Last?.ToLocalTime():d MMM yyyy HH:mm}.";
+    public string Detail => !Reachable ? L.T("Not reachable right now; skipped until it is back.") : Snapshots == 0 ? L.T("No backup here yet.") : L.F(Snapshots == 1 ? "{0} snapshot, {1} used, last {2}." : "{0} snapshots, {1} used, last {2}.", Snapshots, Shell.Human(Size), Last?.ToLocalTime().ToString("d MMM yyyy HH:mm") ?? "");
     public string Badge => !Reachable ? "away" : Snapshots == 0 ? "empty" : "ok";
 }
 
@@ -42,7 +42,7 @@ public sealed class SnapshotRow
     public long Frees { get; }
     public string FileName => Info.FileName;
     public string When => Info.CreatedAt.ToLocalTime().ToString("d MMMM yyyy, HH:mm");
-    public string Line => $"{Info.Files} files, {Shell.Human(Info.Bytes)}, from {Info.Host}" + (Info.Placeholders > 0 ? $", {Info.Placeholders} cloud placeholders listed" : "") + $". Frees {Shell.Human(Frees)}.";
+    public string Line => L.F("{0} files, {1}, from {2}", Info.Files, Shell.Human(Info.Bytes), Info.Host) + (Info.Placeholders > 0 ? L.F(", {0} cloud placeholders listed", Info.Placeholders) : "") + L.F(". Frees {0}.", Shell.Human(Frees));
     public string DestinationName => Path.GetFileName(Destination.TrimEnd('\\', '/'));
 }
 
@@ -61,17 +61,20 @@ public sealed class Shell : Observable
     public string BusyWhat { get => _busyWhat; set => Set(ref _busyWhat, value); }
     public double Progress { get => _progress; set => Set(ref _progress, value); }
     public string LastLine { get => _lastLine; set => Set(ref _lastLine, value); }
+    private string _updateLine = "";
+    public string UpdateLine { get => _updateLine; set => Set(ref _updateLine, value); }
+    public string? UpdatePage { get; set; }
 
     public bool HasKey => Key is not null;
-    public string KeyLine => Key is null ? "No key on this PC yet." : $"Key {Key.Fingerprint} on this PC{(Config.CardConfirmed ? ", card confirmed" : ", card not yet confirmed")}.";
+    public string KeyLine => Key is null ? L.T("No key on this PC yet.") : L.F(Config.CardConfirmed ? "Key {0} on this PC, card confirmed." : "Key {0} on this PC, card not yet confirmed.", Key.Fingerprint);
     public bool CanAct => !Busy && HasKey && Sources.Count > 0 && Destinations.Any(d => d.Reachable);
-    public string ReadyLine => Key is null ? "Step 1: make a key, or enter the card from another PC or Mac."
-        : Sources.Count == 0 ? "Step 2: add a folder to protect."
-        : Destinations.Count == 0 ? "Step 3: choose where it goes."
-        : Destinations.Count == 1 ? "Two destinations are safer: an account can be lost, a disk can fail."
-        : Config.LastBackup is { } lb ? $"Last backup {lb.ToLocalTime():d MMMM yyyy, HH:mm}. {ScheduleLine}" : "Ready. Press Back Up Now.";
-    public string ScheduleLine => Config.Schedule switch { "hourly" => "Runs every hour.", "daily" => "Runs once a day.", _ => "Runs only when you press Back Up Now." };
-    public string VerifyLine => Config.LastVerify is { } lv ? $"Last checked {lv.ToLocalTime():d MMMM yyyy}." : "Never checked yet: Verify restores one random file to prove the whole path works.";
+    public string ReadyLine => Key is null ? L.T("Step 1: make a key, or enter the card from another PC or Mac.")
+        : Sources.Count == 0 ? L.T("Step 2: add a folder to protect.")
+        : Destinations.Count == 0 ? L.T("Step 3: choose where it goes.")
+        : Destinations.Count == 1 ? L.T("Two destinations are safer: an account can be lost, a disk can fail.")
+        : Config.LastBackup is { } lb ? L.F("Last backup {0}. {1}", lb.ToLocalTime().ToString("d MMMM yyyy, HH:mm"), ScheduleLine) : L.T("Ready. Press Back Up Now.");
+    public string ScheduleLine => L.T(Config.Schedule switch { "hourly" => "Runs every hour.", "daily" => "Runs once a day.", _ => "Runs only when you press Back Up Now." });
+    public string VerifyLine => Config.LastVerify is { } lv ? L.F("Last checked {0}.", lv.ToLocalTime().ToString("d MMMM yyyy")) : L.T("Never checked yet: Verify restores one random file to prove the whole path works.");
 
     public static string Human(long bytes) => bytes < 1024 ? $"{bytes} B" : bytes < 1_048_576 ? $"{bytes / 1024.0:0.#} KB" : bytes < 1_073_741_824 ? $"{bytes / 1_048_576.0:0.#} MB" : $"{bytes / 1_073_741_824.0:0.##} GB";
 
@@ -80,14 +83,14 @@ public sealed class Shell : Observable
         Config = Config.Load();
         Key = KeyStore.Load();
         Sources.Clear();
-        foreach (var s in Config.Sources) Sources.Add(new FolderRow(s, Path.GetFileName(s.TrimEnd('\\', '/')), Directory.Exists(s), Directory.Exists(s) ? "" : "Not found right now."));
+        foreach (var s in Config.Sources) Sources.Add(new FolderRow(s, Path.GetFileName(s.TrimEnd('\\', '/')), Directory.Exists(s), Directory.Exists(s) ? "" : L.T("Not found right now.")));
         Destinations.Clear();
         Snapshots.Clear();
         var providers = Providers.Detect();
         foreach (var d in Config.Destinations)
         {
             bool reachable = Directory.Exists(d);
-            var provider = providers.FirstOrDefault(p => Config.IsInside(d, p.Path))?.Name ?? (d.StartsWith(@"\\") ? "Network" : "Folder");
+            var provider = providers.FirstOrDefault(p => Config.IsInside(d, p.Path))?.Name ?? L.T(d.StartsWith(@"\\") ? "Network" : "Folder");
             int count = 0; long size = 0; DateTimeOffset? last = null;
             if (reachable && Key is not null)
             {

@@ -19,7 +19,7 @@
                     <TextBlock Text="{Binding Path}" Style="{StaticResource Small}"/>
                     <TextBlock Text="{Binding Note}" Style="{StaticResource Small}" Foreground="{DynamicResource WarnInk}" Visibility="{Binding Note, Converter={StaticResource NotEmpty}}"/>
                 </StackPanel>
-                <Button Grid.Column="1" Content="Remove" Click="RemoveSource_Click" Tag="{Binding Path}" Margin="0" Padding="10,4"/>
+                <Button Grid.Column="1" Content="{x:Static local:S.Remove}" Click="RemoveSource_Click" Tag="{Binding Path}" Margin="0" Padding="10,4"/>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="DestinationTemplate" DataType="{x:Type local:DestinationRow}">
@@ -33,7 +33,7 @@
                     <TextBlock Text="{Binding Path}" Style="{StaticResource Small}"/>
                     <TextBlock Text="{Binding Detail}" Style="{StaticResource Small}"/>
                 </StackPanel>
-                <Button Grid.Column="1" Content="Remove" Click="RemoveDestination_Click" Tag="{Binding Path}" Margin="0" Padding="10,4"/>
+                <Button Grid.Column="1" Content="{x:Static local:S.Remove}" Click="RemoveDestination_Click" Tag="{Binding Path}" Margin="0" Padding="10,4"/>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="SnapshotTemplate" DataType="{x:Type local:SnapshotRow}">
@@ -43,13 +43,13 @@
                     <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding When}" FontWeight="SemiBold"/><TextBlock Text="{Binding DestinationName}" Style="{StaticResource Small}" Margin="10,1,0,0"/></StackPanel>
                     <TextBlock Text="{Binding Line}" Style="{StaticResource Small}"/>
                 </StackPanel>
-                <Button Grid.Column="1" Content="Restore…" Click="Restore_Click" Tag="{Binding}" Padding="10,4"/>
-                <Button Grid.Column="2" Content="Delete" Click="ForgetSnapshot_Click" Tag="{Binding}" Margin="0" Padding="10,4"/>
+                <Button Grid.Column="1" Content="{x:Static local:S.RestoreDots}" Click="Restore_Click" Tag="{Binding}" Padding="10,4"/>
+                <Button Grid.Column="2" Content="{x:Static local:S.Delete}" Click="ForgetSnapshot_Click" Tag="{Binding}" Margin="0" Padding="10,4"/>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="SuggestedTemplate">
             <Button Click="UseSuggested_Click" Tag="{Binding Path}" Padding="10,5" Margin="0,0,8,6">
-                <TextBlock><Run Text="Use "/><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                <TextBlock><Run Text="{x:Static local:S.Use}"/><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
             </Button>
         </DataTemplate>
     </Window.Resources>
@@ -139,6 +139,7 @@
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="{Binding ReadyLine}"/>
                     <TextBlock Text="{Binding LastLine}" Style="{StaticResource Small}" Margin="0,3,0,0" Visibility="{Binding LastLine, Converter={StaticResource NotEmpty}}"/>
+                    <TextBlock Style="{StaticResource Small}" Margin="0,3,0,0" Visibility="{Binding UpdateLine, Converter={StaticResource NotEmpty}}"><Run Text="{Binding UpdateLine, Mode=OneWay}"/> <Hyperlink Click="Update_Click">See the release</Hyperlink>  <Hyperlink Click="SkipUpdate_Click">Skip this version</Hyperlink></TextBlock>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Verify" Click="Verify_Click" IsEnabled="{Binding CanAct}"/>

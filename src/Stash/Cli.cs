@@ -27,7 +27,7 @@ public static class Cli
 
           stash key new [--json]            make a key on this PC and print the 24 words
           stash key show [--json]           print this PC's words and fingerprint
-          stash key card <file.txt>         write the recovery card as text
+          stash key card <file.txt|.png>    write the recovery card as text, or as an image with the QR code
           stash key restore "<24 words>"    install a key from a card (or a stashmac:key/v1/... QR payload)
           stash key forget                  remove the key from this PC
           stash add <folder>                back this folder up (repeatable); stash remove <folder>
@@ -42,8 +42,9 @@ public static class Cli
           stash prune [--keep N | --thin] [--json]   apply the retention policy now (also runs after each backup)
           stash schedule off|hourly|daily   register the backup with Task Scheduler for this user
           stash seal <in> <out>             encrypt one file as a chunk (proof of the format); stash open <in> <out>
+          stash update                      ask GitHub whether a newer version exists (the only network call, off in Settings)
           stash status [--json]
-          stash screenshots <dir> [--announce] [--dark]
+          stash screenshots <dir> [--announce] [--dark] [--es]
           stash selftest [filter] [--list]
           stash help | version
 
@@ -83,7 +84,7 @@ public static class Cli
                 case "help": case "--help": case "-h": o.WriteLine(Help); return 0;
                 case "version": case "--version": o.WriteLine(json ? J(new { version = Version }) : Version); return 0;
                 case "selftest": return SelfTest.Run(o, pos.FirstOrDefault(), Flag(rest, "--list")) == 0 ? 0 : 1;
-                case "screenshots": return Screenshots.Render(pos.FirstOrDefault() ?? "screenshots", o, Flag(rest, "--announce"), Flag(rest, "--dark"));
+                case "screenshots": return Screenshots.Render(pos.FirstOrDefault() ?? "screenshots", o, Flag(rest, "--announce"), Flag(rest, "--dark"), Flag(rest, "--es"));
 
                 case "key":
                 {
@@ -102,8 +103,9 @@ public static class Cli
                             return 0;
                         case "card":
                             if (KeyStore.Load() is not { } kc) { err.WriteLine("no key on this PC"); return 2; }
-                            if (pos.Count < 2) { err.WriteLine("key card <file.txt>"); return 64; }
-                            File.WriteAllText(pos[1], RecoveryCard.Text(kc));
+                            if (pos.Count < 2) { err.WriteLine("key card <file.txt|file.png>"); return 64; }
+                            if (pos[1].EndsWith(".png", StringComparison.OrdinalIgnoreCase)) File.WriteAllBytes(pos[1], RecoveryCard.Png(kc));
+                            else File.WriteAllText(pos[1], RecoveryCard.Text(kc));
                             o.WriteLine($"wrote {pos[1]}"); return 0;
                         case "restore":
                             if (pos.Count < 2) { err.WriteLine("key restore \"<24 words>\""); return 64; }
@@ -188,8 +190,24 @@ public static class Cli
                         }
                         catch (Exception ex) { results.Add(new { destination = d, error = ex.Message }); if (!json) err.WriteLine($"{d}: {ex.Message}"); worst = 2; }
                     }
-                    cfg.LastBackup = DateTimeOffset.Now; cfg.Save();
-                    Paths.Log_($"backup{(Flag(rest, "--scheduled") ? " (scheduled)" : "")}: {results.Count} destinations, worst {worst}");
+                    cfg.LastBackup = DateTimeOffset.Now;
+                    bool scheduled = Flag(rest, "--scheduled");
+                    if (scheduled)
+                    {
+                        cfg.LastScheduledAt = DateTimeOffset.Now;
+                        cfg.LastScheduledResult = worst == 0 ? "ok" : worst == 1 ? "partial" : "failed";
+                        // The weekly self-check rides along with the schedule, like the Mac's.
+                        if (cfg.WeeklyVerify && Schedule.IsDue(cfg.LastVerify, TimeSpan.FromDays(7), DateTimeOffset.Now))
+                        {
+                            bool clean = true;
+                            foreach (var d in cfg.Destinations.Where(Directory.Exists)) { var v = Restore.Verify(new FolderStore(d, k), k); if (!v.Clean) clean = false; }
+                            cfg.LastVerify = DateTimeOffset.Now;
+                            if (!clean) { cfg.LastScheduledResult = "verify failed"; worst = 2; }
+                            Paths.Log_($"weekly verify: {(clean ? "clean" : "PROBLEM")}");
+                        }
+                    }
+                    cfg.Save();
+                    Paths.Log_($"backup{(scheduled ? " (scheduled)" : "")}: {results.Count} destinations, worst {worst}");
                     if (json) o.WriteLine(J(new { results }));
                     return worst;
                 }
@@ -277,6 +295,12 @@ public static class Cli
                     }
                     return 0;
                 }
+                case "update":
+                {
+                    var r = UpdateCheck.Now(cfg).GetAwaiter().GetResult();
+                    o.WriteLine(r switch { Updates.Available a => $"Version {a.Version} is available: {a.Page}", Updates.UpToDate u => $"Up to date ({u.Latest}).", Updates.Unknown x => $"Could not check: {x.Reason}", _ => "?" });
+                    return r is Updates.Available ? 1 : 0;
+                }
                 case "schedule":
                 {
                     var which = pos.FirstOrDefault()?.ToLowerInvariant();
@@ -321,9 +345,41 @@ public static class Cli
     }
 }
 
+/// <summary>One GET to GitHub's releases API when due. The pure comparison lives in the core.</summary>
+public static class UpdateCheck
+{
+    public static async Task<Updates.Result> Now(Config cfg)
+    {
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Stash-for-Windows/" + Cli.Version);
+            var resp = await http.GetAsync(Updates.Api);
+            var body = await resp.Content.ReadAsStringAsync();
+            cfg.LastUpdateCheck = DateTimeOffset.Now; cfg.Save();
+            return Updates.Parse((int)resp.StatusCode, body, Cli.Version);
+        }
+        catch (Exception ex) { return new Updates.Unknown(ex.Message); }
+    }
+}
+
 /// <summary>The recovery card as text: words numbered, the fingerprint, and what to do with it.</summary>
 public static class RecoveryCard
 {
+    /// <summary>The card as an image: the QR code, the numbered words and the fingerprint. Rendered with WPF off screen.</summary>
+    public static byte[] Png(MasterKey key)
+    {
+        byte[]? result = null;
+        var t = new Thread(() =>
+        {
+            var _ = System.Windows.Application.Current ?? new App();
+            result = CardImage.Render(key);
+        });
+        t.SetApartmentState(ApartmentState.STA); t.Start(); t.Join();
+        return result ?? throw new InvalidOperationException("could not render the card");
+    }
+
     public static string Text(MasterKey key) =>
         "STASH RECOVERY CARD\n\n" +
         "These 24 words are the only way to read your backup. Keep this card somewhere safe; treat it like a passport.\n\n" +
