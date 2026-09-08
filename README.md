@@ -24,6 +24,7 @@ The first time, Windows SmartScreen says it does not recognise the app: click **
 - **Sits in the tray** with the last backup and the next one, Back Up Now and Verify a right-click away, and one balloon when a scheduled backup fails. Opens at sign-in by default; both are toggles in Settings.
 - **Encrypted before it leaves the PC**, with a key that lives on a card you keep, never with the provider and never with anyone else.
 - **Restores a file, a folder, or everything** from any snapshot to a place you choose, and shows what every snapshot is costing you so old ones can be thinned out.
+- **Stops when you say so.** Stop on the progress card ends a backup after the current file; pieces already uploaded are reused next time.
 
 ## What it refuses to do
 
@@ -49,7 +50,7 @@ See [docs/threat-model.md](docs/threat-model.md). In short: the provider, or any
 
 ## Measured
 
-Measured with `tests/perf.ps1` on a Windows 11 ARM64 virtual machine (4 cores, an emulated disk, so a real PC is faster), 250 files of 4 MB to a local folder: first backup 14.4 s, an unchanged second backup 1.0 s, verify 14.0 s, full restore 15.6 s, never more than 160 MB of memory. Files stream through in 4 MB pieces, so a 20 GB video never sits in memory.
+Measured with `tests/perf.ps1` on a Windows 11 ARM64 virtual machine (4 cores, an emulated disk, so a real PC is faster), 250 files of 4 MB to a local folder: first backup 5.1 s, an unchanged second backup 1.8 s (unchanged files are carried over without being read), verify 3.0 s, full restore 4.1 s, never more than 190 MB of memory. Files stream through in 4 MB pieces, so a 20 GB video never sits in memory. Encryption uses Windows' own ChaCha20-Poly1305 where it exists (Windows 10 20H1 and later), with a managed implementation as the fallback and the reference the self-test checks it against.
 
 ## Build it yourself
 

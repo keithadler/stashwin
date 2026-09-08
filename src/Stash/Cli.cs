@@ -34,7 +34,7 @@ public static class Cli
           stash dest <folder>               a destination: any folder a provider syncs, a disk, a NAS; stash undest <folder>
           stash providers                   the OneDrive, Google Drive, Dropbox and iCloud folders found on this PC
           stash exclude [add|remove <pattern>] [--max-mb N]   name patterns to skip (*.tmp, Cache) and a size cap
-          stash backup [--json] [--scheduled]   back up every folder to every reachable destination now
+          stash backup [--json] [--scheduled] [--read-all]   back up now; --read-all rereads unchanged files instead of trusting timestamps
           stash snapshots [--json]          list snapshots with what deleting each would free
           stash forget <snapshot>           delete one snapshot and the pieces only it used
           stash restore <snapshot|latest> <target folder> [--only <path>[,<path>...]] [--dest <folder>]
@@ -177,10 +177,11 @@ public static class Cli
                         if (!Directory.Exists(d)) { results.Add(new { destination = d, skipped = "not reachable right now" }); if (!json) o.WriteLine($"{d}: not reachable right now, skipped"); worst = Math.Max(worst, 1); continue; }
                         try
                         {
-                            var r = Backup.Run(cfg.Sources, d, k, cfg.Rules, (done, total, _) => { if (!json && done % 50 == 0) err.Write($"\r{done}/{total} files"); });
+                            var rules = cfg.Rules; if (Flag(rest, "--read-all")) rules.TrustTimestamps = false;
+                            var r = Backup.Run(cfg.Sources, d, k, rules, (done, total, _) => { if (!json && done % 50 == 0) err.Write($"\r{done}/{total} files"); });
                             if (!json) err.Write("\r");
-                            results.Add(new { destination = d, files = r.Files, bytes = r.Bytes, new_chunks = r.NewChunks, new_bytes = r.NewBytes, reused_chunks = r.ReusedChunks, skipped_placeholders = r.SkippedPlaceholders, skipped_by_rule = r.SkippedByRule, unreadable = r.Unreadable, manifest = r.Manifest });
-                            if (!json) o.WriteLine($"{d}: {r.Files} files, {Human(r.Bytes)}; uploaded {r.NewChunks} chunks ({Human(r.NewBytes)}), reused {r.ReusedChunks}"
+                            results.Add(new { destination = d, files = r.Files, bytes = r.Bytes, new_chunks = r.NewChunks, new_bytes = r.NewBytes, reused_chunks = r.ReusedChunks, unchanged = r.Unchanged, skipped_placeholders = r.SkippedPlaceholders, skipped_by_rule = r.SkippedByRule, unreadable = r.Unreadable, manifest = r.Manifest });
+                            if (!json) o.WriteLine($"{d}: {r.Files} files, {Human(r.Bytes)}; uploaded {r.NewChunks} chunks ({Human(r.NewBytes)}), reused {r.ReusedChunks}" + (r.Unchanged > 0 ? $", {r.Unchanged} unchanged and not reread" : "")
                                 + (r.SkippedPlaceholders > 0 ? $"; {r.SkippedPlaceholders} cloud placeholders listed, not downloaded" : "")
                                 + (r.SkippedByRule > 0 ? $"; {r.SkippedByRule} skipped by your rules" : "")
                                 + (r.Unreadable.Count > 0 ? $"; {r.Unreadable.Count} unreadable" : ""));

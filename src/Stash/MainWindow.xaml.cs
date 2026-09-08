@@ -104,10 +104,13 @@ public partial class MainWindow : Window
     private void RemoveDestination_Click(object sender, RoutedEventArgs e) { if ((sender as Button)?.Tag is string p) Shell.RemoveDestination(p); }
 
     // ---- Work ----
-    private async Task RunBusy(string what, Func<Action<string, double>, Shell.Outcome> work)
+    private async Task RunBusy(string what, Func<Action<string, double>, CancellationToken, Shell.Outcome> work)
     {
         Shell.Busy = true; Shell.BusyWhat = what; Shell.Progress = 0;
-        var outcome = await Task.Run(() => work((line, p) => Dispatcher.Invoke(() => { Shell.BusyWhat = line; Shell.Progress = p; })));
+        Shell.Cancel = new CancellationTokenSource();
+        var token = Shell.Cancel.Token;
+        var outcome = await Task.Run(() => work((line, p) => Dispatcher.Invoke(() => { Shell.BusyWhat = line; Shell.Progress = p; }), token));
+        Shell.Cancel = null;
         Shell.Busy = false;
         Shell.Load();
         Shell.LastLine = outcome.Message;
@@ -123,9 +126,10 @@ public partial class MainWindow : Window
             var r = MessageBox.Show(this, L.T("You have not confirmed the recovery card yet. Without it the backup can never be read. Show the card now?"), "Stash for Windows", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (r == MessageBoxResult.Yes) { new RecoveryCardWindow(Shell, k) { Owner = this }.ShowDialog(); if (!Shell.Config.CardConfirmed) return; }
         }
-        await RunBusy(L.T("Backing up"), p => Shell.BackUp(p));
+        await RunBusy(L.T("Backing up"), (p, c) => Shell.BackUp(p, c));
     }
-    private async void Verify_Click(object sender, RoutedEventArgs e) => await RunBusy(L.T("Checking the backup"), p => Shell.Verify(p));
+    private async void Verify_Click(object sender, RoutedEventArgs e) => await RunBusy(L.T("Checking the backup"), (p, c) => Shell.Verify(p, c));
+    private void CancelBusy_Click(object sender, RoutedEventArgs e) { Shell.RequestCancel(); Shell.BusyWhat = L.T("Stopping after the current file…"); }
 
     private void Restore_Click(object sender, RoutedEventArgs e)
     {

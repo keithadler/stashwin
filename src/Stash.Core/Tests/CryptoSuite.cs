@@ -32,6 +32,8 @@ public static class CryptoSuite
         s.Check("Poly1305 one-time key RFC 8439 vector", otk.AsSpan(0, 32).SequenceEqual(Hex("8ad5a08b905f81cc815040274ab29471a833b637e3fd0da508dbb8e2fdd1a646")));
 
         // Seal/open round trip, tamper, wrong key, and the platform implementation agrees where it exists.
+        var savedPlatform = ChaChaPoly.UsePlatform;
+        ChaChaPoly.UsePlatform = false; // the managed path first, then the platform one below
         var mk = RandomNumberGenerator.GetBytes(32);
         var data = RandomNumberGenerator.GetBytes(100_003);
         var box = ChaChaPoly.Seal(data, mk);
@@ -43,13 +45,16 @@ public static class CryptoSuite
         s.Check("empty plaintext seals and opens", ChaChaPoly.Open(ChaChaPoly.Seal(Array.Empty<byte>(), mk), mk).Length == 0);
         if (System.Security.Cryptography.ChaCha20Poly1305.IsSupported)
         {
-            using var platform = new System.Security.Cryptography.ChaCha20Poly1305(mk);
-            var nonce2 = box.AsSpan(0, 12).ToArray();
-            var pt = new byte[data.Length];
-            platform.Decrypt(nonce2, box.AsSpan(12, data.Length), box.AsSpan(box.Length - 16), pt);
-            s.Check("the platform ChaCha20-Poly1305 opens our box", pt.AsSpan().SequenceEqual(data));
+            ChaChaPoly.UsePlatform = true;
+            s.Check("the platform implementation opens the managed box", ChaChaPoly.Open(box, mk).AsSpan().SequenceEqual(data));
+            var pbox = ChaChaPoly.Seal(data, mk);
+            ChaChaPoly.UsePlatform = false;
+            s.Check("the managed implementation opens the platform box", ChaChaPoly.Open(pbox, mk).AsSpan().SequenceEqual(data));
+            ChaChaPoly.UsePlatform = true;
+            s.Throws<CryptographicException>("platform refuses a flipped bit too", () => ChaChaPoly.Open(tampered, mk));
         }
         else s.Check("platform ChaCha20-Poly1305 not available here; managed only", true);
+        ChaChaPoly.UsePlatform = savedPlatform;
         return s;
     }
 }

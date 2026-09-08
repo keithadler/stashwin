@@ -22,6 +22,7 @@ public static class BackupSuite
         Directory.CreateDirectory(Path.Combine(src, "node_modules"));
         File.WriteAllText(Path.Combine(src, "node_modules", "x.js"), "junk");
         Manifest.HostOverride = "SAMS-PC";
+        foreach (var f in Directory.EnumerateFiles(src, "*", SearchOption.AllDirectories)) File.SetLastWriteTimeUtc(f, DateTime.UtcNow.AddMinutes(-5)); // old enough for the shortcut
 
         var report = Backup.Run(new[] { src }, dest, key);
         s.Equal("files backed up", 4, report.Files);
@@ -38,10 +39,34 @@ public static class BackupSuite
         s.Equal("one snapshot", 1, snaps.Count);
         s.Check("snapshot carries host and counts", snaps[0].Host == "SAMS-PC" && snaps[0].Files == 4 && snaps[0].Bytes == 5 + 2 * big.Length);
 
-        // Second backup, unchanged: nothing new uploaded.
+        // Second backup, unchanged: nothing new uploaded, and nothing even read.
         var second = Backup.Run(new[] { src }, dest, key);
         s.Equal("unchanged backup uploads nothing", 0, second.NewChunks);
+        s.Equal("unchanged files were carried over without reading", 4, second.Unchanged);
         s.Equal("two snapshots now", 2, Restore.Snapshots(store, key).Count);
+        // A touched file is read again; a file whose pieces vanished is read again too.
+        File.WriteAllText(Path.Combine(src, "notes.txt"), "hello!");
+        var touched = Backup.Run(new[] { src }, dest, key);
+        s.Check("a changed file is read and uploaded", touched.Unchanged == 3 && touched.NewChunks == 1);
+        // Racy: rewritten with the same size within two seconds of the snapshot: reread, never trusted.
+        File.WriteAllText(Path.Combine(src, "notes.txt"), "HELLO!");
+        var racy = Backup.Run(new[] { src }, dest, key);
+        s.Check("a same-size rewrite right after a snapshot is reread", racy.NewChunks == 1 && Manifest.Open(store.GetManifest(racy.Manifest), key).Files.First(f => f.Path == "notes.txt").Chunks[0] == Chunk.Name(System.Text.Encoding.UTF8.GetBytes("HELLO!"), key));
+        File.SetLastWriteTimeUtc(Path.Combine(src, "notes.txt"), DateTime.UtcNow.AddMinutes(-5));
+        Backup.Run(new[] { src }, dest, key);
+        var missing = Manifest.Open(store.GetManifest(store.ManifestNames()[0]), key).Files.First(f => f.Path == "empty.txt").Chunks[0];
+        var missingPath = store.Layout.ChunkPath(missing); var missingBytes = File.ReadAllBytes(missingPath); File.Delete(missingPath);
+        var healed = Backup.Run(new[] { src }, dest, key);
+        s.Check("a file whose piece went missing is re-uploaded", healed.Unchanged == 3 && healed.NewChunks == 1 && store.HasChunk(missing));
+        File.WriteAllText(Path.Combine(src, "notes.txt"), "hello"); File.SetLastWriteTimeUtc(Path.Combine(src, "notes.txt"), DateTime.UtcNow.AddMinutes(-5));
+        var strict = Backup.Run(new[] { src }, dest, key, new Rules { TrustTimestamps = false });
+        s.Equal("with timestamps distrusted every file is read", 0, strict.Unchanged);
+        second = strict;
+        // Cancellation stops between files and writes no manifest.
+        using var cts = new CancellationTokenSource(); cts.Cancel();
+        int before = store.ManifestNames().Count;
+        var cancelled = Backup.Run(new[] { src }, dest, key, cancel: cts.Token);
+        s.Check("cancelled backup writes no manifest", cancelled.Cancelled && store.ManifestNames().Count == before);
 
         // Restore everything and compare.
         var target = t.Dir("restore");
@@ -61,6 +86,7 @@ public static class BackupSuite
         // Verify: clean, then a damaged chunk is reported and never written.
         var v = Restore.Verify(store, key);
         s.Check("verify is clean", v.Clean && v.ChunksChecked == 4 && v.SampleOk == true, $"bad {v.ChunksBad.Count} missing {v.ChunksMissing.Count} sample {v.SampleOk}");
+        s.Check("verify compared the sample byte for byte with the live file", v.SampleCompared);
         var chunkName = Manifest.Open(store.GetManifest(second.Manifest), key).Files.First(f => f.Path == "notes.txt").Chunks[0];
         var p = store.Layout.ChunkPath(chunkName);
         var bytes = File.ReadAllBytes(p); bytes[^1] ^= 1; File.WriteAllBytes(p, bytes);

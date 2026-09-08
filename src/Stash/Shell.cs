@@ -57,6 +57,8 @@ public sealed class Shell : Observable
     public ObservableCollection<Providers.Found> Suggested { get; } = new();
 
     private bool _busy; private string _lastLine = "", _busyWhat = ""; private double _progress;
+    public CancellationTokenSource? Cancel { get; set; }
+    public void RequestCancel() { try { Cancel?.Cancel(); } catch { } }
     public bool Busy { get => _busy; set { if (Set(ref _busy, value)) Raise(nameof(CanAct)); } }
     public string BusyWhat { get => _busyWhat; set => Set(ref _busyWhat, value); }
     public double Progress { get => _progress; set => Set(ref _progress, value); }
@@ -132,45 +134,53 @@ public sealed class Shell : Observable
     // ---- Work ----
     public sealed record Outcome(bool Ok, string Message);
 
-    public Outcome BackUp(Action<string, double>? progress = null)
+    private static string Rate(long bytes, System.Diagnostics.Stopwatch sw) => sw.Elapsed.TotalSeconds < 0.5 ? "" : $", {Human((long)(bytes / sw.Elapsed.TotalSeconds))}/s";
+
+    public Outcome BackUp(Action<string, double>? progress = null, CancellationToken cancel = default)
     {
-        if (Key is null) return new(false, "No key.");
-        var lines = new List<string>(); bool ok = true;
+        if (Key is null) return new(false, L.T("No key."));
+        var lines = new List<string>(); bool ok = true; bool cancelled = false;
         foreach (var d in Config.Destinations)
         {
-            if (!Directory.Exists(d)) { lines.Add($"{Path.GetFileName(d.TrimEnd('\\'))}: not reachable, skipped."); continue; }
+            var name = Path.GetFileName(d.TrimEnd('\\'));
+            if (cancel.IsCancellationRequested) { cancelled = true; break; }
+            if (!Directory.Exists(d)) { lines.Add(L.F("{0}: not reachable, skipped.", name)); continue; }
             try
             {
-                var r = Backup.Run(Config.Sources, d, Key, Config.Rules, (done, total, _) => progress?.Invoke($"{Path.GetFileName(d.TrimEnd('\\'))}: {done} of {total} files", total == 0 ? 0 : (double)done / total));
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var r = Backup.Run(Config.Sources, d, Key, Config.Rules, (done, total, bytes) => progress?.Invoke(L.F("{0}: {1} of {2} files", name, done, total) + Rate(bytes, sw), total == 0 ? 0 : (double)done / total), cancel);
+                if (r.Cancelled) { cancelled = true; lines.Add(L.F("{0}: stopped; pieces already uploaded will be reused next time.", name)); break; }
                 var p = Prune.Run(new FolderStore(d, Key), Key, Config.KeepSnapshots, Config.Policy);
-                lines.Add($"{Path.GetFileName(d.TrimEnd('\\'))}: {r.Files} files, uploaded {Human(r.NewBytes)}, reused {r.ReusedChunks} pieces" + (r.SkippedPlaceholders > 0 ? $", {r.SkippedPlaceholders} cloud placeholders listed not downloaded" : "") + (r.Unreadable.Count > 0 ? $", {r.Unreadable.Count} unreadable" : "") + (p.BytesFreed > 0 ? $", reclaimed {Human(p.BytesFreed)}" : "") + ".");
+                lines.Add(L.F("{0}: {1} files, uploaded {2}, reused {3} pieces", name, r.Files, Human(r.NewBytes), r.ReusedChunks) + (r.Unchanged > 0 ? L.F(", {0} unchanged and not reread", r.Unchanged) : "") + (r.SkippedPlaceholders > 0 ? L.F(", {0} cloud placeholders listed not downloaded", r.SkippedPlaceholders) : "") + (r.Unreadable.Count > 0 ? L.F(", {0} unreadable", r.Unreadable.Count) : "") + (p.BytesFreed > 0 ? L.F(", reclaimed {0}", Human(p.BytesFreed)) : "") + L.F(" in {0:0.0} s.", sw.Elapsed.TotalSeconds));
             }
-            catch (Exception ex) { ok = false; lines.Add($"{Path.GetFileName(d.TrimEnd('\\'))}: {ex.Message}"); }
+            catch (Exception ex) { ok = false; lines.Add($"{name}: {ex.Message}"); }
         }
-        Config.LastBackup = DateTimeOffset.Now; Config.Save();
+        if (!cancelled) { Config.LastBackup = DateTimeOffset.Now; Config.Save(); }
         Paths.Log_("backup (window): " + string.Join(" ", lines));
-        return new(ok, string.Join(" ", lines));
+        return new(ok && !cancelled, string.Join(" ", lines));
     }
 
-    public Outcome Verify(Action<string, double>? progress = null)
+    public Outcome Verify(Action<string, double>? progress = null, CancellationToken cancel = default)
     {
-        if (Key is null) return new(false, "No key.");
+        if (Key is null) return new(false, L.T("No key."));
         var lines = new List<string>(); bool ok = true;
         foreach (var d in Config.Destinations.Where(Directory.Exists))
         {
-            var v = Restore.Verify(new FolderStore(d, Key), Key, (done, total) => progress?.Invoke($"{Path.GetFileName(d.TrimEnd('\\'))}: checking {done} of {total} pieces", total == 0 ? 0 : (double)done / total));
+            var name = Path.GetFileName(d.TrimEnd('\\'));
+            var v = Restore.Verify(new FolderStore(d, Key), Key, (done, total) => progress?.Invoke(L.F("{0}: checking {1} of {2} pieces", name, done, total), total == 0 ? 0 : (double)done / total), cancel);
+            if (v.Cancelled) { lines.Add(L.F("{0}: stopped.", name)); ok = false; break; }
             if (!v.Clean) ok = false;
-            lines.Add($"{Path.GetFileName(d.TrimEnd('\\'))}: {v.ChunksChecked} pieces open" + (v.ChunksInCloudOnly > 0 ? $", {v.ChunksInCloudOnly} in the cloud only" : "") + (v.ChunksBad.Count > 0 ? $", {v.ChunksBad.Count} damaged" : "") + (v.ChunksMissing.Count > 0 ? $", {v.ChunksMissing.Count} missing" : "") + (v.SampleFile is not null ? $"; {Path.GetFileName(v.SampleFile)} restored and {(v.SampleOk == true ? "matched" : "did not match")}" : "") + ".");
+            lines.Add(L.F("{0}: {1} pieces open", name, v.ChunksChecked) + (v.ChunksInCloudOnly > 0 ? L.F(", {0} in the cloud only", v.ChunksInCloudOnly) : "") + (v.ChunksBad.Count > 0 ? L.F(", {0} damaged", v.ChunksBad.Count) : "") + (v.ChunksMissing.Count > 0 ? L.F(", {0} missing", v.ChunksMissing.Count) : "") + (v.SampleFile is not null ? (v.SampleOk == true ? (v.SampleCompared ? L.F("; {0} restored and identical to the original", Path.GetFileName(v.SampleFile)) : L.F("; {0} restored and matched", Path.GetFileName(v.SampleFile))) : L.F("; {0} did NOT restore correctly", Path.GetFileName(v.SampleFile))) : "") + ".");
         }
-        Config.LastVerify = DateTimeOffset.Now; Config.Save();
-        return new(ok, lines.Count == 0 ? "No destination reachable." : string.Join(" ", lines));
+        if (ok) { Config.LastVerify = DateTimeOffset.Now; Config.Save(); }
+        return new(ok, lines.Count == 0 ? L.T("No destination reachable.") : string.Join(" ", lines));
     }
 
-    public Outcome RestoreSnapshot(SnapshotRow snap, string target, IReadOnlyList<string> only, Action<string, double>? progress = null)
+    public Outcome RestoreSnapshot(SnapshotRow snap, string target, IReadOnlyList<string> only, Action<string, double>? progress = null, CancellationToken cancel = default)
     {
-        if (Key is null) return new(false, "No key.");
-        var r = Restore.Run(snap.FileName, new FolderStore(snap.Destination, Key), Key, target, only, (done, total) => progress?.Invoke($"restoring {done} of {total} files", total == 0 ? 0 : (double)done / total));
-        return new(r.Failed.Count == 0, $"Restored {r.Restored} files ({Human(r.Bytes)}) into {target}." + (r.Failed.Count > 0 ? $" {r.Failed.Count} failed: {string.Join("; ", r.Failed.Take(3))}" : ""));
+        if (Key is null) return new(false, L.T("No key."));
+        var r = Restore.Run(snap.FileName, new FolderStore(snap.Destination, Key), Key, target, only, (done, total) => progress?.Invoke(L.F("restoring {0} of {1} files", done, total), total == 0 ? 0 : (double)done / total), cancel);
+        return new(r.Failed.Count == 0 && !r.Cancelled, L.F("Restored {0} files ({1}) into {2}.", r.Restored, Human(r.Bytes), target) + (r.Cancelled ? L.T(" Stopped before the end.") : "") + (r.Failed.Count > 0 ? L.F(" {0} failed: {1}", r.Failed.Count, string.Join("; ", r.Failed.Take(3))) : ""));
     }
 
     public Outcome ForgetSnapshot(SnapshotRow snap)

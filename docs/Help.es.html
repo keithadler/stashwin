@@ -34,6 +34,7 @@
 <h2 id="where">Dónde va</h2>
 <p>Dentro de cada destino la app crea una carpeta llamada <code>Stash for Mac</code> (el nombre con el que nació el formato, conservado para que una tarjeta sirva en ambos), después una carpeta con la huella de la clave y dentro <code>chunks</code> y <code>manifests</code>. Todo lo que hay ahí está cifrado. Un README lo explica a quien lo encuentre.</p>
 <p>Las piezas son de 4 MB y se nombran con un hash con clave de su contenido, así que un archivo que no cambia se guarda una sola vez y lo comparten todas las instantáneas. El proveedor no puede saber qué es una pieza ni si dos personas guardaron el mismo archivo.</p>
+<p>Un archivo cuyo tamaño y fecha de modificación coinciden con la instantánea anterior, y cuyas piezas siguen ahí, se conserva sin leerlo, así que una copia sin cambios tarda segundos. Un archivo modificado en los dos segundos siguientes a esa instantánea se relee siempre. En Ajustes se puede desactivar el atajo para leer cada archivo cada vez. <b>Detener</b> en la tarjeta de progreso termina la copia tras el archivo actual; las piezas ya subidas se reutilizan la próxima vez.</p>
 <p>Un destino que no está disponible (un disco desconectado, un NAS apagado) se omite y la app lo dice.</p>
 
 <h2 id="schedule">Programación</h2>

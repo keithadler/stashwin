@@ -9,6 +9,10 @@ public static class ChaChaPoly
 {
     public const int NonceSize = 12, TagSize = 16, KeySize = 32;
 
+    /// <summary>The operating system's implementation is used when it exists (Windows 10 20H1 and later, Linux); the managed one
+    /// below is the fallback and the reference the self-test compares it against. Same bytes either way.</summary>
+    public static bool UsePlatform { get; set; } = System.Security.Cryptography.ChaCha20Poly1305.IsSupported;
+
     /// <summary>nonce || ciphertext || tag, with a fresh random nonce.</summary>
     public static byte[] Seal(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key)
     {
@@ -17,9 +21,15 @@ public static class ChaChaPoly
         var output = new byte[NonceSize + plaintext.Length + TagSize];
         nonce.CopyTo(output, 0);
         var ct = output.AsSpan(NonceSize, plaintext.Length);
+        var tagSpan = output.AsSpan(NonceSize + plaintext.Length, TagSize);
+        if (UsePlatform)
+        {
+            using var aead = new System.Security.Cryptography.ChaCha20Poly1305(key);
+            aead.Encrypt(nonce, plaintext, ct, tagSpan);
+            return output;
+        }
         ChaCha20(key, nonce, 1, plaintext, ct);
-        var tag = Tag(key, nonce, ct);
-        tag.CopyTo(output.AsSpan(NonceSize + plaintext.Length));
+        Tag(key, nonce, ct).CopyTo(tagSpan);
         return output;
     }
 
@@ -31,9 +41,15 @@ public static class ChaChaPoly
         var nonce = combined[..NonceSize];
         var ct = combined[NonceSize..^TagSize];
         var tag = combined[^TagSize..];
+        var plain = new byte[ct.Length];
+        if (UsePlatform)
+        {
+            using var aead = new System.Security.Cryptography.ChaCha20Poly1305(key);
+            aead.Decrypt(nonce, ct, tag, plain); // throws AuthenticationTagMismatchException, a CryptographicException
+            return plain;
+        }
         var expected = Tag(key, nonce, ct);
         if (!CryptographicOperations.FixedTimeEquals(expected, tag)) throw new CryptographicException("authentication failed");
-        var plain = new byte[ct.Length];
         ChaCha20(key, nonce, 1, ct, plain);
         return plain;
     }

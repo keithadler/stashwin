@@ -35,6 +35,8 @@
 <h2 id="where">Where it goes</h2>
 <p>Inside each destination the app makes a folder called <code>Stash for Mac</code> (the name the format was born with, kept so one card restores on either), then a folder named by the key's fingerprint, then <code>chunks</code> and <code>manifests</code>. Every file in there is encrypted. A README explains that to anyone who finds it.</p>
 <p>Pieces are 4 MB, named by a keyed hash of their contents, so an unchanged file is stored once and shared by every snapshot. The provider cannot tell what a piece is, or whether two people stored the same file.</p>
+<p>A file whose size and modified time match the previous snapshot, and whose pieces are all still there, is carried over without being read, so an unchanged backup takes seconds. A file modified within two seconds of that snapshot is always reread, in case it was rewritten with the same size. Settings can turn the shortcut off to read every file every time.</p>
+<p><b>Stop</b> on the progress card ends a backup after the current file; pieces already uploaded stay and are reused next time, and no snapshot is written for the stopped run.</p>
 <p>A destination that is not reachable (an unplugged disk, a NAS that is off) is skipped and the app says so. A cloud folder set to keep files online-only still works as a destination; the app only ever writes there.</p>
 
 <h2 id="schedule">Schedule</h2>
@@ -42,7 +44,7 @@
 
 <h2 id="restore">Restore and verify</h2>
 <p><b>Restore</b> on a snapshot opens a list of every file in it. Select some, or restore everything, and choose where they go: files arrive in a folder named after the original folder, and nothing at the original location is touched. A piece that fails its authentication check is reported and never written.</p>
-<p><b>Verify</b> opens every piece the latest snapshot uses and restores one random file to a temporary folder to prove the whole path works. Pieces a cloud folder keeps online-only are counted, not downloaded. Settings can run this once a week.</p>
+<p><b>Verify</b> opens every piece the latest snapshot uses and restores one random file to a temporary folder to prove the whole path works; when the original is still on the PC and unchanged, the two are compared byte for byte. Pieces a cloud folder keeps online-only are counted, not downloaded. Settings can run this once a week.</p>
 
 <h2 id="snapshots">Snapshots</h2>
 <p>Every backup is a snapshot: the list of files at that moment and the pieces that rebuild them. <b>Frees</b> is what deleting that snapshot alone gives back, the old versions only it still holds. After each backup the app keeps the newest N (30 by default) or thins out over time: everything from the last week, one a day for a month, one a week for a year, one a month after that. A piece nobody references is deleted, except one written in the last two hours, which may be an upload in flight from another PC on the same card.</p>

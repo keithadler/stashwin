@@ -5,9 +5,12 @@ namespace Stash.Core;
 public sealed class BackupReport
 {
     public int Files, NewChunks, ReusedChunks, SkippedPlaceholders, SkippedByRule;
+    /// <summary>Files carried over from the previous snapshot without being read: same path, size and modified time, all pieces present.</summary>
+    public int Unchanged;
     public long Bytes, NewBytes;
     public List<string> Unreadable { get; } = new();
     public string Manifest = "";
+    public bool Cancelled;
 }
 
 /// <summary>What to back up and the rules. Plain values; the key is never here.</summary>
@@ -17,6 +20,9 @@ public sealed class Rules
     public List<string> Excludes { get; set; } = DefaultExcludes.ToList();
     /// <summary>0 means no cap.</summary>
     public long MaxFileBytes { get; set; }
+    /// <summary>Skip reading a file whose path, size and modified time match the previous snapshot and whose pieces are all present.
+    /// The same trust every sync tool places in timestamps; off means every byte is read every time.</summary>
+    public bool TrustTimestamps { get; set; } = true;
 }
 
 /// <summary>The backup itself: walk the chosen folders, split each file into chunks, upload the ones the destination
@@ -71,16 +77,31 @@ public static class Backup
         return (files, placeholders, skipped);
     }
 
-    public static BackupReport Run(IReadOnlyList<string> sources, string destination, MasterKey key, Rules? rules = null, Action<int, int, long>? progress = null)
-        => Run(sources, new FolderStore(destination, key), key, rules, progress);
+    public static BackupReport Run(IReadOnlyList<string> sources, string destination, MasterKey key, Rules? rules = null, Action<int, int, long>? progress = null, CancellationToken cancel = default)
+        => Run(sources, new FolderStore(destination, key), key, rules, progress, cancel);
 
-    /// <summary>Runs one backup of every source into a chunk store. Progress gets (files done, files total, bytes done).</summary>
-    public static BackupReport Run(IReadOnlyList<string> sources, IChunkStore store, MasterKey key, Rules? rules = null, Action<int, int, long>? progress = null)
+    /// <summary>Runs one backup of every source into a chunk store. Progress gets (files done, files total, bytes done).
+    /// Cancelling stops between files; pieces already written stay (a later backup reuses them) and no manifest is written.</summary>
+    public static BackupReport Run(IReadOnlyList<string> sources, IChunkStore store, MasterKey key, Rules? rules = null, Action<int, int, long>? progress = null, CancellationToken cancel = default)
     {
         rules ??= new Rules();
         store.Prepare();
         var report = new BackupReport();
         var manifest = new Manifest { Sources = sources.Select(s => Path.GetFullPath(s)).ToList() };
+        // The previous snapshot, for the unchanged-file shortcut: same source root, path, size and modified time.
+        Dictionary<string, Manifest.Entry>? previous = null;
+        DateTimeOffset previousTaken = default;
+        if (rules.TrustTimestamps && store.ManifestNames().FirstOrDefault() is { } latest)
+        {
+            try
+            {
+                var prev = Manifest.Open(store.GetManifest(latest), key);
+                previous = new Dictionary<string, Manifest.Entry>(StringComparer.Ordinal);
+                foreach (var f in prev.Files) if (f.Source < prev.Sources.Count) previous[prev.Sources[f.Source] + "\u0000" + f.Path] = f;
+                previousTaken = prev.CreatedAt;
+            }
+            catch { previous = null; }
+        }
         var walked = new List<(int Source, Walked File)>();
         for (int i = 0; i < sources.Count; i++)
         {
@@ -95,7 +116,21 @@ public static class Backup
         var buffer = new byte[Chunk.Size];
         for (int n = 0; n < walked.Count; n++)
         {
+            if (cancel.IsCancellationRequested) { report.Cancelled = true; return report; }
             var (source, f) = walked[n];
+            // Unchanged shortcut: same size and modified time (manifests keep whole seconds, like the Mac's), every piece present,
+            // and the file was last modified at least two seconds before the previous snapshot was taken. A file rewritten with the
+            // same size in the same second as that snapshot could otherwise be mistaken for unchanged; such files are always reread.
+            if (previous is not null && previous.TryGetValue(manifest.Sources[source] + "\u0000" + f.Rel, out var old)
+                && old.Size == f.Size && Math.Abs((old.Modified - f.Modified).TotalSeconds) < 1
+                && previousTaken - f.Modified >= TimeSpan.FromSeconds(2) && old.Chunks.All(store.HasChunk))
+            {
+                manifest.Files.Add(new Manifest.Entry { Source = source, Path = f.Rel, Size = f.Size, Modified = f.Modified, Chunks = old.Chunks.ToList() });
+                report.Files++; report.Bytes += f.Size; report.Unchanged++; report.ReusedChunks += old.Chunks.Count;
+                done += f.Size;
+                progress?.Invoke(n + 1, walked.Count, done);
+                continue;
+            }
             FileStream h;
             try { h = new FileStream(f.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16); }
             catch { report.Unreadable.Add(f.Rel); continue; }

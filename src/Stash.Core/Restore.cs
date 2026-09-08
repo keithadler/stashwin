@@ -7,6 +7,7 @@ public sealed class RestoreReport
     public int Restored;
     public long Bytes;
     public List<string> Failed { get; } = new();
+    public bool Cancelled;
 }
 
 public sealed class VerifyReport
@@ -16,6 +17,9 @@ public sealed class VerifyReport
     public List<string> ChunksMissing { get; } = new();
     public string? SampleFile;
     public bool? SampleOk;
+    /// <summary>True when the sample was compared byte for byte with the live file (which still had the snapshot's size and time), not just its size.</summary>
+    public bool SampleCompared;
+    public bool Cancelled;
     public bool Clean => ChunksBad.Count == 0 && ChunksMissing.Count == 0 && SampleOk != false;
 }
 
@@ -46,7 +50,7 @@ public static class Restore
         => prefixes.Count == 0 || prefixes.Any(p => path == p || path.StartsWith(p.EndsWith('/') ? p : p + "/", StringComparison.Ordinal));
 
     /// <summary>Restores files from a snapshot into target/&lt;source folder name&gt;/&lt;relative path&gt;.</summary>
-    public static RestoreReport Run(string snapshot, IChunkStore store, MasterKey key, string target, IReadOnlyList<string>? only = null, Action<int, int>? progress = null)
+    public static RestoreReport Run(string snapshot, IChunkStore store, MasterKey key, string target, IReadOnlyList<string>? only = null, Action<int, int>? progress = null, CancellationToken cancel = default)
     {
         only ??= Array.Empty<string>();
         var m = Open(snapshot, store, key);
@@ -54,6 +58,7 @@ public static class Restore
         var report = new RestoreReport();
         for (int n = 0; n < wanted.Count; n++)
         {
+            if (cancel.IsCancellationRequested) { report.Cancelled = true; return report; }
             var f = wanted[n];
             var sourceName = Path.GetFileName(m.Sources[f.Source].TrimEnd('/', '\\'));
             var outPath = Path.Combine(target, sourceName, f.Path.Normalize(System.Text.NormalizationForm.FormC).Replace('/', Path.DirectorySeparatorChar));
@@ -79,7 +84,7 @@ public static class Restore
 
     /// <summary>Opens every chunk the latest snapshot references, and restores one random file to a temporary folder
     /// to prove the whole path works. Chunks evicted to the cloud are counted, not downloaded.</summary>
-    public static VerifyReport Verify(IChunkStore store, MasterKey key, Action<int, int>? progress = null)
+    public static VerifyReport Verify(IChunkStore store, MasterKey key, Action<int, int>? progress = null, CancellationToken cancel = default)
     {
         var report = new VerifyReport();
         var latest = store.ManifestNames().FirstOrDefault();
@@ -88,6 +93,7 @@ public static class Restore
         var names = m.Files.SelectMany(f => f.Chunks).Distinct().OrderBy(n => n, StringComparer.Ordinal).ToList();
         for (int n = 0; n < names.Count; n++)
         {
+            if (cancel.IsCancellationRequested) { report.Cancelled = true; return report; }
             var name = names[n];
             if (!store.HasChunk(name)) { report.ChunksMissing.Add(name); }
             else if (store.IsEvicted(name)) { report.ChunksInCloudOnly++; }
@@ -116,9 +122,33 @@ public static class Restore
                 var restored = Path.Combine(tmp, sourceName, pick.Path.Normalize(System.Text.NormalizationForm.FormC).Replace('/', Path.DirectorySeparatorChar));
                 long size = File.Exists(restored) ? new FileInfo(restored).Length : -1;
                 report.SampleOk = r.Failed.Count == 0 && size == pick.Size;
+                // When the original is still there and unchanged since the snapshot, compare every byte, not just the size.
+                var live = Path.Combine(m.Sources[pick.Source], pick.Path.Normalize(System.Text.NormalizationForm.FormC).Replace('/', Path.DirectorySeparatorChar));
+                if (report.SampleOk == true && File.Exists(live) && !FolderStore.IsDataless(live))
+                {
+                    var fi = new FileInfo(live);
+                    if (fi.Length == pick.Size && Math.Abs((new DateTimeOffset(fi.LastWriteTimeUtc, TimeSpan.Zero) - pick.Modified).TotalSeconds) < 1)
+                    {
+                        report.SampleCompared = true;
+                        report.SampleOk = SameBytes(live, restored);
+                    }
+                }
             }
             finally { try { Directory.Delete(tmp, true); } catch { } }
         }
         return report;
+    }
+
+    private static bool SameBytes(string a, string b)
+    {
+        using var fa = File.OpenRead(a); using var fb = File.OpenRead(b);
+        if (fa.Length != fb.Length) return false;
+        var ba = new byte[1 << 16]; var bb = new byte[1 << 16];
+        while (true)
+        {
+            int ra = fa.ReadAtLeast(ba, ba.Length, false), rb = fb.ReadAtLeast(bb, bb.Length, false);
+            if (ra != rb || !ba.AsSpan(0, ra).SequenceEqual(bb.AsSpan(0, rb))) return false;
+            if (ra == 0) return true;
+        }
     }
 }

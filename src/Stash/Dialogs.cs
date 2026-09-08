@@ -273,6 +273,8 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(maxRow);
         panel.Children.Add(Ui.Text("Name patterns, comma separated. Files and folders whose name matches are left out. Virtual machine disks are skipped by default: they are huge and change constantly.", "Small", new Thickness(0, 4, 0, 0)));
 
+        var readAll = new CheckBox { Content = L.T("Read every file every time, instead of trusting size and modified time for unchanged files (slower, thorough)"), IsChecked = cfg.ReadAll, Margin = new Thickness(0, 10, 0, 0) };
+        panel.Children.Add(readAll);
         var weekly = new CheckBox { Content = L.T("Check the backup once a week: open every piece and restore one random file"), IsChecked = cfg.WeeklyVerify, Margin = new Thickness(0, 14, 0, 0) };
         panel.Children.Add(weekly);
         panel.Children.Add(Ui.Text("The app", "H2", new Thickness(0, 14, 0, 4)));
@@ -292,6 +294,7 @@ public sealed class SettingsWindow : Window
             cfg.Excludes = excludes.Text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
             cfg.MaxFileMB = int.TryParse(max.Text, out var mb) && mb > 0 ? mb : 0;
             cfg.WeeklyVerify = weekly.IsChecked == true;
+            cfg.ReadAll = readAll.IsChecked == true;
             cfg.Tray = tray.IsChecked == true;
             cfg.UpdateCheck = updates.IsChecked == true;
             Startup.Set(login.IsChecked == true); cfg.OpenAtSignIn = login.IsChecked == true;

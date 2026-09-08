@@ -63,6 +63,8 @@ public sealed class Config
     public int KeepSnapshots { get; set; } = 30;
     public List<string> Excludes { get; set; } = Rules.DefaultExcludes.ToList();
     public int MaxFileMB { get; set; }
+    /// <summary>Read every file every backup instead of trusting size and modified time for unchanged ones.</summary>
+    public bool ReadAll { get; set; }
     public bool WeeklyVerify { get; set; } = true;
     public bool CardConfirmed { get; set; }
     public bool UpdateCheck { get; set; } = true;
@@ -74,7 +76,7 @@ public sealed class Config
     public string? LastScheduledResult { get; set; }
     public DateTimeOffset? LastScheduledAt { get; set; }
 
-    [JsonIgnore] public Rules Rules => new() { Excludes = Excludes.ToList(), MaxFileBytes = (long)MaxFileMB * 1_048_576 };
+    [JsonIgnore] public Rules Rules => new() { Excludes = Excludes.ToList(), MaxFileBytes = (long)MaxFileMB * 1_048_576, TrustTimestamps = !ReadAll };
     [JsonIgnore] public Retention.Policy Policy => Retention == "thin" ? Core.Retention.Policy.Thin : Core.Retention.Policy.Last;
     [JsonIgnore] public TimeSpan? Interval => Schedule switch { "hourly" => TimeSpan.FromHours(1), "daily" => TimeSpan.FromDays(1), _ => null };
 

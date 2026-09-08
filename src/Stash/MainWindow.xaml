@@ -127,7 +127,10 @@
                 <StackPanel>
                     <TextBlock Text="{Binding BusyWhat}" Style="{StaticResource H2}"/>
                     <ProgressBar Value="{Binding Progress, Mode=OneWay}" Maximum="1" Height="6" Margin="0,12,0,10" BorderThickness="0" Foreground="{DynamicResource Accent}" Background="{DynamicResource Line}"/>
-                    <TextBlock Text="Nothing leaves the PC unencrypted. You can keep working." Style="{StaticResource Small}"/>
+                    <Grid>
+                        <TextBlock Text="Nothing leaves the PC unencrypted. You can keep working." Style="{StaticResource Small}" VerticalAlignment="Center" Margin="0,0,90,0"/>
+                        <Button Content="Stop" Click="CancelBusy_Click" HorizontalAlignment="Right" Margin="0" Padding="12,4"/>
+                    </Grid>
                 </StackPanel>
             </Border>
         </Grid>
