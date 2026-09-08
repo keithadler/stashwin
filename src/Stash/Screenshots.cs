@@ -45,11 +45,17 @@ public static class Screenshots
     public static RenderTargetBitmap Capture(FrameworkElement root)
     {
         root.UpdateLayout();
-        var bg = new Border { Background = (Brush)Application.Current.Resources["Ground"], Width = root.ActualWidth, Height = root.ActualHeight };
-        var bmp = new RenderTargetBitmap((int)(root.ActualWidth * 2), (int)(root.ActualHeight * 2), 192, 192, PixelFormats.Pbgra32);
-        bg.Measure(new Size(root.ActualWidth, root.ActualHeight)); bg.Arrange(new Rect(0, 0, root.ActualWidth, root.ActualHeight));
-        bmp.Render(bg);
-        bmp.Render(root);
+        // Draw through a VisualBrush so the element's own offset inside its window (a margin, a scroll viewer's padding) does not shift the picture.
+        var w = root.ActualWidth + root.Margin.Left + root.Margin.Right;
+        var h = root.ActualHeight + root.Margin.Top + root.Margin.Bottom;
+        var dv = new DrawingVisual();
+        using (var dc = dv.RenderOpen())
+        {
+            dc.DrawRectangle((Brush)Application.Current.Resources["Ground"], null, new Rect(0, 0, w, h));
+            dc.DrawRectangle(new VisualBrush(root) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top }, null, new Rect(root.Margin.Left, root.Margin.Top, root.ActualWidth, root.ActualHeight));
+        }
+        var bmp = new RenderTargetBitmap((int)(w * 2), (int)(h * 2), 192, 192, PixelFormats.Pbgra32);
+        bmp.Render(dv);
         return bmp;
     }
 
