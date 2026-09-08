@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- One project, two exes: "Stash for Windows.exe" (window) and "stash.exe" (console, for scripts, the schedule and SSH). -->
+    <OutputType Condition="'$(CliBuild)'!='true'">WinExe</OutputType>
+    <OutputType Condition="'$(CliBuild)'=='true'">Exe</OutputType>
+    <DefineConstants Condition="'$(CliBuild)'=='true'">$(DefineConstants);CLI_BUILD</DefineConstants>
+    <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Stash</RootNamespace>
+    <AssemblyName Condition="'$(CliBuild)'!='true'">Stash for Windows</AssemblyName>
+    <AssemblyName Condition="'$(CliBuild)'=='true'">stash</AssemblyName>
+    <StartupObject>Stash.Program</StartupObject>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="Exists('Stash.ico')">Stash.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>0.1.0</InformationalVersion>
+    <AssemblyTitle>Stash for Windows</AssemblyTitle>
+    <Product>Stash for Windows</Product>
+    <Company>Keith Adler</Company>
+    <Authors>Keith Adler</Authors>
+    <Description>Encrypted backup into the storage you already have. The provider only ever sees ciphertext; your key is 24 words on a card.</Description>
+    <Copyright>Copyright (c) 2026 Keith Adler. MIT.</Copyright>
+    <NeutralLanguage>en</NeutralLanguage>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifiers>win-arm64;win-x64</RuntimeIdentifiers>
+    <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Stash.Core/Stash.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="../../icon/stash-256.png" Link="Assets/stash-256.png" Condition="Exists('../../icon/stash-256.png')" />
+    <EmbeddedResource Include="../../docs/Help.html" LogicalName="Help.html" Condition="Exists('../../docs/Help.html')" />
+  </ItemGroup>
+</Project>

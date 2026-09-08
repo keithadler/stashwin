@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Stash for Windows Help</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; --fg: #1c1f1c; --muted: #5e655f; --bg: #fff; --card: #f3f5f3; --accent: #1f7a4a; --line: #e2e5e2; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f1f4f1; --muted: #a0a8a1; --bg: #1a1d1a; --card: #252925; --accent: #6fcf97; --line: #363b36; } }
+  body { margin: 0; font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 4px; } h1 small { display: block; font-size: 15px; font-weight: 400; color: var(--muted); }
+  h2 { font-size: 20px; margin: 36px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .muted { color: var(--muted); }
+  code, pre { font: 13px "Cascadia Mono", Consolas, ui-monospace, monospace; } pre { background: var(--card); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+  .card { background: var(--card); border-radius: 10px; padding: 14px 16px; margin: 12px 0; } .warn { border-left: 4px solid #d9a400; }
+  nav a { margin-right: 14px; color: var(--accent); text-decoration: none; } a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; } td, th { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; } th { color: var(--muted); font-weight: 600; font-size: 13px; }
+</style></head>
+<body><main>
+<h1>Stash for Windows <small>Help</small></h1>
+<p class="muted">Encrypted backup of the folders that matter, into the storage you already have. The provider only ever sees ciphertext. Your key is 24 words on a card. No password, no recovery, no server.</p>
+<nav><a href="#start">Getting started</a><a href="#key">The key and the card</a><a href="#where">Where it goes</a><a href="#schedule">Schedule</a><a href="#restore">Restore and verify</a><a href="#snapshots">Snapshots</a><a href="#mac">With Stash for Mac</a><a href="#limits">Honest limits</a><a href="#cli">Command line</a></nav>
+
+<h2 id="start">Getting started</h2>
+<ol>
+<li><b>Make a key.</b> The app shows a card with 24 words. Write them down, save the card as text, or print it. It asks you for three of the words to prove you have it. Stash keeps no copy.</li>
+<li><b>Add folders.</b> Documents, Pictures, Desktop, a project. Whole drives are refused; choose the folders that matter.</li>
+<li><b>Add destinations.</b> The app offers the OneDrive, Google Drive, Dropbox or iCloud folders it finds on this PC. Any other folder, an external disk or a NAS works too. Two are safer than one.</li>
+<li><b>Back Up Now.</b> Then set a schedule in Settings.</li>
+</ol>
+
+<h2 id="key">The key and the card</h2>
+<p>The key is 256 random bits, shown as 24 words from a fixed list with a checksum, so a mistyped word is caught before any restore starts. The eight-character fingerprint tells two cards apart. On this PC the key is wrapped by Windows Data Protection for your account; on the card it is the only other copy.</p>
+<div class="card warn">Lose the card and the backup is unreadable, by anyone, including you. There is no password to reset and no support line that can help. Treat the card like a passport.</div>
+<p><b>Forget this key</b> removes it from this PC. The backups stay where they are, encrypted, and the card brings them back on any PC or Mac.</p>
+
+<h2 id="where">Where it goes</h2>
+<p>Inside each destination the app makes a folder called <code>Stash for Mac</code> (the name the format was born with, kept so one card restores on either), then a folder named by the key's fingerprint, then <code>chunks</code> and <code>manifests</code>. Every file in there is encrypted. A README explains that to anyone who finds it.</p>
+<p>Pieces are 4 MB, named by a keyed hash of their contents, so an unchanged file is stored once and shared by every snapshot. The provider cannot tell what a piece is, or whether two people stored the same file.</p>
+<p>A destination that is not reachable (an unplugged disk, a NAS that is off) is skipped and the app says so. A cloud folder set to keep files online-only still works as a destination; the app only ever writes there.</p>
+
+<h2 id="schedule">Schedule</h2>
+<p>Settings offers every hour or once a day at 20:00. The app registers a Task Scheduler task for your account that runs <code>stash.exe backup --scheduled</code>, so backups happen whether or not the window is open, with no service and no administrator. Set it to off and the task is removed.</p>
+
+<h2 id="restore">Restore and verify</h2>
+<p><b>Restore</b> on a snapshot opens a list of every file in it. Select some, or restore everything, and choose where they go: files arrive in a folder named after the original folder, and nothing at the original location is touched. A piece that fails its authentication check is reported and never written.</p>
+<p><b>Verify</b> opens every piece the latest snapshot uses and restores one random file to a temporary folder to prove the whole path works. Pieces a cloud folder keeps online-only are counted, not downloaded. Settings can run this once a week.</p>
+
+<h2 id="snapshots">Snapshots</h2>
+<p>Every backup is a snapshot: the list of files at that moment and the pieces that rebuild them. <b>Frees</b> is what deleting that snapshot alone gives back, the old versions only it still holds. After each backup the app keeps the newest N (30 by default) or thins out over time: everything from the last week, one a day for a month, one a week for a year, one a month after that. A piece nobody references is deleted, except one written in the last two hours, which may be an upload in flight from another PC on the same card.</p>
+
+<h2 id="mac">With Stash for Mac</h2>
+<p>Same format, same words. Enter a Mac's card here and add the same destination folder: the Mac's snapshots appear and restore. Make a key here and a Mac reads this PC's backups. Both apps can back up to one destination with one card; the pieces they share are stored once.</p>
+
+<h2 id="limits">Honest limits</h2>
+<ul>
+<li>Cloud placeholders (files a provider has not downloaded to this PC) are listed as skipped, never fetched. Open the file once, or mark the folder "always keep on this device", and the next backup takes it.</li>
+<li>The provider, or anyone with your provider password, can delete the whole folder. Two destinations.</li>
+<li>Someone with your unlocked PC and the app running has the key. No backup tool survives that.</li>
+<li>Pieces are fixed 4 MB; a large file with a small edit in the middle uploads two new pieces, not a few bytes.</li>
+<li>Windows Data Protection ties the wrapped key to your account on this PC: a new PC, a new account or a reset needs the card.</li>
+</ul>
+
+<h2 id="cli">Command line</h2>
+<p><code>stash.exe</code> is the same program as a console app.</p>
+<pre>stash key new | show | card &lt;file.txt&gt; | restore "&lt;24 words&gt;" | forget
+stash add &lt;folder&gt;        stash dest &lt;folder&gt;        stash providers
+stash backup [--json]    stash snapshots            stash restore latest &lt;target&gt; [--only a,b]
+stash verify             stash prune [--keep N | --thin]    stash schedule off|hourly|daily
+stash status [--json]    stash selftest</pre>
+<p>Exit codes: 0 fine, 1 something to look at, 2 problem, 64 usage. <code>STASH_HOME</code> moves the settings folder. Nothing leaves the PC except the encrypted backup. Free, MIT, built by Keith Adler; more at <a href="https://keithadler.github.io/">keithadler.github.io</a>.</p>
+</main></body></html>

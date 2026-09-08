@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2F8F5B"/><stop offset="1" stop-color="#14532D"/></linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.25" r="0.6"><stop offset="0" stop-color="#9BE7B8" stop-opacity="0.35"/><stop offset="1" stop-color="#9BE7B8" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="url(#glow)"/>
+  <!-- the card -->
+  <rect x="116" y="150" width="280" height="212" rx="26" fill="#FFFFFF"/>
+  <rect x="116" y="150" width="280" height="212" rx="26" fill="none" stroke="#DDEFE3" stroke-width="4"/>
+  <!-- three rows of word dots -->
+  <g fill="#2F8F5B">
+    <circle cx="160" cy="205" r="10"/><rect x="184" y="197" width="70" height="16" rx="8"/><rect x="266" y="197" width="50" height="16" rx="8"/><rect x="328" y="197" width="40" height="16" rx="8"/>
+    <circle cx="160" cy="256" r="10"/><rect x="184" y="248" width="46" height="16" rx="8"/><rect x="242" y="248" width="74" height="16" rx="8"/><rect x="328" y="248" width="30" height="16" rx="8"/>
+    <circle cx="160" cy="307" r="10"/><rect x="184" y="299" width="60" height="16" rx="8"/><rect x="256" y="299" width="44" height="16" rx="8"/><rect x="312" y="299" width="56" height="16" rx="8"/>
+  </g>
+  <!-- the padlock on the corner -->
+  <g transform="translate(330 310)">
+    <circle cx="40" cy="40" r="52" fill="#14532D"/>
+    <rect x="18" y="36" width="44" height="34" rx="8" fill="#FFFFFF"/>
+    <path d="M26 36v-8a14 14 0 0 1 28 0v8" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="40" cy="53" r="5" fill="#14532D"/>
+  </g>
+</svg>

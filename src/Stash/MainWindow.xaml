@@ -1,0 +1,149 @@
+<Window x:Class="Stash.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Stash"
+        Title="Stash for Windows" Icon="pack://application:,,,/Assets/stash-256.png" Width="980" Height="760" MinWidth="760" MinHeight="560"
+        Background="{DynamicResource Ground}" FontFamily="Segoe UI Variable Text, Segoe UI" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="Vis"/>
+        <local:InverseVisibility x:Key="Hidden"/>
+        <local:BadgeBrush x:Key="BadgeBg" Mode="Bg"/>
+        <local:BadgeBrush x:Key="BadgeInk" Mode="Ink"/>
+        <local:NotEmptyToVisibility x:Key="NotEmpty"/>
+
+        <DataTemplate x:Key="FolderTemplate" DataType="{x:Type local:FolderRow}">
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Path}" Style="{StaticResource Small}"/>
+                    <TextBlock Text="{Binding Note}" Style="{StaticResource Small}" Foreground="{DynamicResource WarnInk}" Visibility="{Binding Note, Converter={StaticResource NotEmpty}}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Remove" Click="RemoveSource_Click" Tag="{Binding Path}" Margin="0" Padding="10,4"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="DestinationTemplate" DataType="{x:Type local:DestinationRow}">
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                        <Border Style="{StaticResource Pill}" Background="{Binding Badge, Converter={StaticResource BadgeBg}}"><TextBlock Text="{Binding Provider}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding Badge, Converter={StaticResource BadgeInk}}"/></Border>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Path}" Style="{StaticResource Small}"/>
+                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Small}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Remove" Click="RemoveDestination_Click" Tag="{Binding Path}" Margin="0" Padding="10,4"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="SnapshotTemplate" DataType="{x:Type local:SnapshotRow}">
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding When}" FontWeight="SemiBold"/><TextBlock Text="{Binding DestinationName}" Style="{StaticResource Small}" Margin="10,1,0,0"/></StackPanel>
+                    <TextBlock Text="{Binding Line}" Style="{StaticResource Small}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Restore…" Click="Restore_Click" Tag="{Binding}" Padding="10,4"/>
+                <Button Grid.Column="2" Content="Delete" Click="ForgetSnapshot_Click" Tag="{Binding}" Margin="0" Padding="10,4"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="SuggestedTemplate">
+            <Button Click="UseSuggested_Click" Tag="{Binding Path}" Padding="10,5" Margin="0,0,8,6">
+                <TextBlock><Run Text="Use "/><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+            </Button>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Background="{DynamicResource Ground}">
+        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,22,28,10">
+            <StackPanel x:Name="Body" MaxWidth="860" HorizontalAlignment="Left">
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Image Source="pack://application:,,,/Assets/stash-256.png" Width="48" Height="48" Margin="0,0,14,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Stash for Windows" Style="{StaticResource H1}" Margin="0"/>
+                        <TextBlock Text="Encrypted backup of the folders that matter, into storage you already have." Style="{StaticResource Small}" FontSize="13"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource Small}"><Hyperlink Click="Settings_Click">Settings</Hyperlink>   <Hyperlink Click="Help_Click">Help</Hyperlink>   <Hyperlink Click="About_Click">About</Hyperlink></TextBlock>
+                </Grid>
+
+                <!-- Key -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Step 1 of 3: a key" Style="{StaticResource H2}" Visibility="{Binding HasKey, Converter={StaticResource Hidden}}"/>
+                        <TextBlock Text="Your key" Style="{StaticResource H2}" Visibility="{Binding HasKey, Converter={StaticResource Vis}}"/>
+                        <TextBlock Margin="0,4,0,8" Text="Stash makes it for you; you keep it as 24 words on a card. Nothing else can read the backup, and the app never keeps a copy of the card. The same card works in Stash for Mac." Visibility="{Binding HasKey, Converter={StaticResource Hidden}}"/>
+                        <TextBlock Margin="0,4,0,8" Text="{Binding KeyLine}" Visibility="{Binding HasKey, Converter={StaticResource Vis}}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Make a key" Style="{StaticResource Primary}" Click="MakeKey_Click" Visibility="{Binding HasKey, Converter={StaticResource Hidden}}"/>
+                            <Button Content="I have a card" Click="EnterCard_Click" Visibility="{Binding HasKey, Converter={StaticResource Hidden}}"/>
+                            <Button Content="Show the recovery card" Click="ShowCard_Click" Visibility="{Binding HasKey, Converter={StaticResource Vis}}"/>
+                            <Button Content="Forget this key…" Click="ForgetKey_Click" Visibility="{Binding HasKey, Converter={StaticResource Vis}}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Folders -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Folders to protect" Style="{StaticResource H2}"/>
+                        <ItemsControl ItemsSource="{Binding Sources}" ItemTemplate="{StaticResource FolderTemplate}" Margin="0,6,0,4"/>
+                        <TextBlock x:Name="NoSources" Text="Nothing yet. Documents, Pictures, Desktop, a project folder: whatever you would miss." Style="{StaticResource Small}" Margin="0,4,0,6"/>
+                        <Button Content="Add folder…" Click="AddSource_Click" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Destinations -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Where it goes" Style="{StaticResource H2}"/>
+                        <ItemsControl ItemsSource="{Binding Destinations}" ItemTemplate="{StaticResource DestinationTemplate}" Margin="0,6,0,4"/>
+                        <TextBlock x:Name="OneDestination" Text="Two destinations are safer: an account can be lost, a disk can fail." Style="{StaticResource Small}" Foreground="{DynamicResource WarnInk}" Margin="0,2,0,6"/>
+                        <TextBlock Text="Found on this PC:" Style="{StaticResource Small}" Margin="0,4,0,4" Visibility="{Binding Suggested.Count, Converter={StaticResource NotEmpty}}"/>
+                        <ItemsControl ItemsSource="{Binding Suggested}" ItemTemplate="{StaticResource SuggestedTemplate}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+                        <Button Content="Add destination…" Click="AddDestination_Click" HorizontalAlignment="Left"/>
+                        <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="Any folder works: the OneDrive, Google Drive, Dropbox or iCloud folder their apps sync, an external disk, a NAS. Everything written there is encrypted first."/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Snapshots -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="Snapshots" Style="{StaticResource H2}"/><TextBlock Text="{Binding VerifyLine}" Style="{StaticResource Small}" Margin="12,2,0,0"/></StackPanel>
+                        <ItemsControl ItemsSource="{Binding Snapshots}" ItemTemplate="{StaticResource SnapshotTemplate}" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="NoSnapshots" Text="No backup yet." Style="{StaticResource Small}" Margin="0,4,0,0"/>
+                        <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="A snapshot is small on its own: unchanged files are stored once and shared. &quot;Frees&quot; is what deleting that snapshot alone would give back."/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Busy overlay -->
+        <Grid Grid.RowSpan="2" Visibility="{Binding Busy, Converter={StaticResource Vis}}" Panel.ZIndex="10">
+            <Border Background="{DynamicResource Ground}" Opacity="0.82"/>
+            <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28,22" Width="460">
+                <StackPanel>
+                    <TextBlock Text="{Binding BusyWhat}" Style="{StaticResource H2}"/>
+                    <ProgressBar Value="{Binding Progress, Mode=OneWay}" Maximum="1" Height="6" Margin="0,12,0,10" BorderThickness="0" Foreground="{DynamicResource Accent}" Background="{DynamicResource Line}"/>
+                    <TextBlock Text="Nothing leaves the PC unencrypted. You can keep working." Style="{StaticResource Small}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Action bar -->
+        <Border Grid.Row="1" Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="28,12">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ReadyLine}"/>
+                    <TextBlock Text="{Binding LastLine}" Style="{StaticResource Small}" Margin="0,3,0,0" Visibility="{Binding LastLine, Converter={StaticResource NotEmpty}}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Verify" Click="Verify_Click" IsEnabled="{Binding CanAct}"/>
+                    <Button Content="Back Up Now" Style="{StaticResource Primary}" Click="BackUp_Click" IsEnabled="{Binding CanAct}" Margin="0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
