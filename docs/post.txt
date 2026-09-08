@@ -1,0 +1,13 @@
+Stash for Windows. Free, open source.
+
+Encrypted backup of the folders that matter into the storage you already have: the OneDrive that comes with 365, the Google Drive that comes with Gmail, Dropbox, iCloud, a disk, a NAS. Several at once, on a schedule, uploading only what changed.
+
+Everything is encrypted on the PC first; the provider only ever holds scrambled blobs. Your key is 24 words on a card. No password, no recovery, no server: lose the card and nobody can read the backup, including you. Verify restores a random file to prove the whole path works.
+
+Same format as Stash for Mac, byte for byte. One card restores on either.
+
+No account, no update check, nothing leaves the PC unencrypted. One exe, x64 and ARM64, no installer, never an administrator. Also a command line: stash backup
+
+Second Windows app from the maker of Quiet for Windows and Clip, Tidy, Stash, Permissions, Ask and Watch for Mac.
+
+https://github.com/keithadler/stashwin

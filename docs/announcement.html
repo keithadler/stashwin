@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stash for Windows</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1d1d22; --muted:#5f5f6b; --bg:#fff; --card:#f4f4f7; --accent:#1f7a4a; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#f2f2f5; --muted:#a2a2ab; --bg:#141418; --card:#232328; --accent:#6fcf97; } }
+  body { margin:0; font:17px/1.55 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width:900px; margin:0 auto; padding:56px 24px 96px; }
+  h1 { font-size:44px; line-height:1.1; margin:0 0 12px; letter-spacing:-0.02em; } .lead { font-size:21px; color:var(--muted); margin:0 0 28px; }
+  img { max-width:100%; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25); margin:18px 0 32px; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; padding:14px 22px; border-radius:10px; text-decoration:none; font-weight:600; }
+  h2 { font-size:26px; margin:40px 0 8px; } .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; } .card { background:var(--card); border-radius:12px; padding:18px 20px; } .card h3 { margin:0 0 6px; font-size:18px; }
+  code { font:15px "Cascadia Mono",Consolas,ui-monospace,monospace; background:var(--card); padding:2px 6px; border-radius:6px; } .small { color:var(--muted); font-size:15px; }
+</style></head><body><main>
+<h1>Encrypted backup into the storage<br>you already have.</h1>
+<p class="lead">The OneDrive that comes with Microsoft 365, the Google Drive that comes with Gmail, Dropbox, iCloud, a disk, a NAS. Several at once, on a schedule, uploading only what changed. The provider only ever holds scrambled blobs. You hold the key, as 24 words on a card.</p>
+<p><a class="btn" href="https://github.com/keithadler/stashwin/releases/latest">Download for Windows</a> &nbsp; <span class="small">Free. Open source. Windows 10 and 11, x64 and ARM64. One exe, no installer, never asks to be an administrator.</span></p>
+<img src="screenshots/main.png" alt="Stash for Windows: your key, folders to protect, where it goes, snapshots">
+<h2>What it does</h2>
+<div class="grid">
+<div class="card"><h3>Several places at once</h3>Your OneDrive folder and your Google Drive folder and an external disk, each a complete copy. An account can be lost, a disk can fail; two destinations survive either, and the app nags until you have two.</div>
+<div class="card"><h3>On a schedule</h3>Every hour or once a day, as a Task Scheduler task for your account. No window needs to be open, no service runs, and a destination that is unplugged is skipped until it is back.</div>
+<div class="card"><h3>Checks itself</h3>Verify opens every piece of the latest snapshot and restores one random file to prove the whole path works. A backup that has never been verified is a guess.</div>
+<div class="card"><h3>Same card as the Mac</h3>The format is Stash for Mac's, byte for byte. A backup made on either restores on both, and one destination can hold both PCs' snapshots under one card.</div>
+</div>
+<img src="screenshots/card.png" alt="The recovery card: 24 words, a fingerprint, and a three-word check">
+<h2>Honest limits</h2>
+<p class="small">Lose the card and the backup is unreadable by anyone, including you; there is no password to reset. Cloud placeholders that are not actually on the PC are listed as skipped, never downloaded behind your back. Pieces are fixed 4 MB, so a small edit in a large file uploads new pieces. The provider, or anyone with your provider password, can delete the folder, which is why two destinations. It never connects to anything, so there is no update check either.</p>
+<p class="small">Also a command line: <code>stash backup</code>, <code>stash restore latest D:\back</code>. MIT licensed, signed by its author. More from the same maker: <a href="https://keithadler.github.io">keithadler.github.io</a>.</p>
+</main></body></html>
